@@ -13,6 +13,54 @@
 
 ---
 
+## Fork changes
+
+This is a fork of [Zibbp/ganymede](https://github.com/Zibbp/ganymede). It adds the changes below; everything else follows upstream.
+
+### Live archives in parts, resumed after a stream drop
+
+Two settings in **Admin › Settings › Live stream**, both `0` (upstream behaviour) by default:
+
+- **Live Archive Part Length (minutes)** (`livestream.split_duration_minutes`): stores live archives as `.ts` parts of at most that many minutes, played in Ganymede as a single video.
+- **Live Stream Reconnect Window (minutes)** (`livestream.reconnect_grace_minutes`): when a stream drops and comes back within that many minutes, keeps archiving it into the same video instead of starting a new one.
+
+When either is set:
+
+- The live stream is captured as HLS, so it can be watched while it is recorded, back to its start, without the *Watching While Archiving* option or its doubled disk usage.
+- A dropped or frozen stream is resumed in the same playlist. The timeline stays continuous and the live chat is realigned to skip the time the stream was down.
+- When the archive is finalized, the segments are packed into parts next to a byte-range HLS playlist. A new part also starts after each reconnect, and each part plays on its own (VLC, mpv, Jellyfin):
+
+```
+{channel}/{folder}/{file}-video_hls/
+  {streamId}-video.m3u8         # video_path, played as one video
+  {streamId}-video-part001.ts
+  {streamId}-video-part002.ts
+```
+
+Limitations: parts are MPEG-TS, and AV1 renditions are skipped because browsers cannot play them from MPEG-TS. A worker restart during a stream still starts a new video. Chapters, the absolute time overlay and multistream sync do not account for the time a stream was down.
+
+### Player
+
+- A playback speed menu in the control bar shows the current rate (0.25x to 2x). It was previously only under Settings › Playback.
+
+### Videos page
+
+- New **Channel** option in *Sort by*: one horizontally scrolling row per channel with its 12 latest videos (the type filter and order apply) and a link to the channel page. Rows load as they scroll into view.
+
+### Watching while archiving
+
+- Playback no longer breaks between the end of a live capture and the end of chat processing.
+- The player only looks for a temporary HLS stream when the capture writes one, and no longer crashes when a processing video has none.
+- The temporary playlist is found by stream ID, which does not change when Twitch assigns the VOD ID.
+
+### Upstream bugs fixed along the way
+
+- Live captures saved as HLS mapped every stream twice.
+- Post-processing and moving a live HLS archive failed if the Twitch VOD ID was assigned before they ran.
+- The storage template migration renamed the playlist of live HLS archives after the Twitch VOD ID.
+
+---
+
 ## Screenshot
 
 ![ganymede-readme_landing](https://github.com/user-attachments/assets/b1c024f5-f5ad-4611-84db-42d599364a74)
