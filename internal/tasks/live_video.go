@@ -3,14 +3,25 @@ package tasks
 import (
 	"context"
 	"errors"
+	"os"
+	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"
 	"github.com/rs/zerolog/log"
+	"github.com/zibbp/ganymede/ent"
+	"github.com/zibbp/ganymede/internal/config"
 	"github.com/zibbp/ganymede/internal/exec"
+	"github.com/zibbp/ganymede/internal/hls"
 	"github.com/zibbp/ganymede/internal/utils"
+)
+
+const (
+	liveCaptureRetryInterval = 20 * time.Second
+	// Restart ffmpeg when it keeps waiting on a frozen stream instead of exiting.
+	liveCaptureStallTimeout = 90 * time.Second
 )
 
 // //////////////////////
@@ -62,35 +73,33 @@ func (w DownloadLiveVideoWorker) Work(ctx context.Context, job *river.Job[Downlo
 		return err
 	}
 
-	startChatDownload := make(chan bool)
-
-	go func(workCtx context.Context) {
-		for {
-			select {
-			case <-startChatDownload:
-				// start chat download if requested
-				if dbItems.Queue.ArchiveChat {
-					log.Debug().Str("channel", dbItems.Channel.Name).Msgf("starting chat download for %s", dbItems.Video.ExtID)
-					client := river.ClientFromContext[pgx.Tx](workCtx)
-					_, insertErr := client.Insert(workCtx, &DownloadLiveChatArgs{
-						Continue: true,
-						Input:    nextArchiveInput(job.Args.Input),
-					}, nil)
-					if insertErr != nil {
-						log.Error().Err(insertErr).Msg("failed to start chat download")
-					}
-				}
-			case <-workCtx.Done():
-				return
-			}
+	// The chat download starts once, right before ffmpeg first starts.
+	var chatOnce sync.Once
+	startChatDownload := func() {
+		if !dbItems.Queue.ArchiveChat {
+			return
 		}
-	}(ctx)
+		log.Debug().Str("channel", dbItems.Channel.Name).Msgf("starting chat download for %s", dbItems.Video.ExtID)
+		_, insertErr := client.Insert(ctx, &DownloadLiveChatArgs{
+			Continue: true,
+			Input:    nextArchiveInput(job.Args.Input),
+		}, nil)
+		if insertErr != nil {
+			log.Error().Err(insertErr).Msg("failed to start chat download")
+		}
+	}
 
 	// download live video
 	// Note: even when download fails unexpectedly, continue with finalization steps
 	// (cancel live chat, mark channel not live, enqueue post-process) so partial archive
 	// can still be completed/moved instead of being left in a stuck state.
-	downloadErr := exec.DownloadTwitchLiveVideo(ctx, dbItems.Video, dbItems.Channel, startChatDownload)
+	var downloadErr error
+	grace := time.Duration(config.Get().Livestream.ReconnectGraceMinutes) * time.Minute
+	if dbItems.Video.VideoHlsPath != "" && grace > 0 {
+		downloadErr = captureLiveVideoWithReconnect(ctx, store.Client, dbItems, grace, func() { chatOnce.Do(startChatDownload) })
+	} else {
+		downloadErr = exec.DownloadTwitchLiveVideo(ctx, dbItems.Video, dbItems.Channel, func() { chatOnce.Do(startChatDownload) })
+	}
 	remotelyCancelled := false
 	if downloadErr != nil {
 		if errors.Is(downloadErr, context.Canceled) {
@@ -169,4 +178,117 @@ func (w DownloadLiveVideoWorker) Work(ctx context.Context, job *river.Job[Downlo
 	}
 
 	return nil
+}
+
+// captureLiveVideoWithReconnect captures the stream into its HLS playlist and resumes the
+// capture while the stream comes back within grace. Each run is recorded on the queue so the
+// live chat can be lined up with the video (see utils.LiveCaptureRun).
+func captureLiveVideoWithReconnect(ctx context.Context, client *ent.Client, dbItems *GetDatabaseItemsResponse, grace time.Duration, startChat func()) error {
+	playlistPath := tmpHLSPlaylistPath(&dbItems.Video)
+	logger := log.With().Str("queue_id", dbItems.Queue.ID.String()).Str("channel", dbItems.Channel.Name).Logger()
+	var runs []utils.LiveCaptureRun
+	saveRuns := func() {
+		// Saved even when the capture was just stopped, as finalization still converts the chat.
+		if err := client.Queue.UpdateOneID(dbItems.Queue.ID).SetLiveCaptureRuns(runs).Exec(context.WithoutCancel(ctx)); err != nil {
+			logger.Error().Err(err).Msg("failed to save live capture runs")
+		}
+	}
+
+	capture := func(ctx context.Context) (bool, error) {
+		before, _ := hls.MediaPlaylistDuration(playlistPath) // no playlist before the first run
+		started := false
+
+		runCtx, cancelRun := context.WithCancel(ctx)
+		defer cancelRun()
+		go cancelWhenPlaylistStalls(runCtx, cancelRun, playlistPath, liveCaptureStallTimeout)
+
+		err := exec.DownloadTwitchLiveVideo(runCtx, dbItems.Video, dbItems.Channel, func() {
+			started = true
+			startChat()
+			runs = append(runs, utils.LiveCaptureRun{WallStart: time.Now(), VideoOffset: before})
+			saveRuns()
+		})
+
+		after, _ := hls.MediaPlaylistDuration(playlistPath)
+		progressed := after > before
+		if started {
+			if progressed {
+				runs[len(runs)-1].WallEnd = time.Now()
+			} else {
+				runs = runs[:len(runs)-1]
+			}
+			saveRuns()
+		}
+		if err != nil && ctx.Err() == nil {
+			logger.Warn().Err(err).Bool("captured", progressed).Msg("live capture run ended")
+		}
+		return progressed, err
+	}
+
+	return captureWithReconnect(ctx, grace, liveCaptureRetryInterval, time.Now, sleepContext, capture)
+}
+
+// captureWithReconnect runs capture until nothing has been captured for grace since the end
+// of the last run that captured something. It retries right after such a run and every
+// retryInterval otherwise. It returns ctx.Err() once cancelled, and the last error when
+// nothing was ever captured.
+func captureWithReconnect(ctx context.Context, grace, retryInterval time.Duration, now func() time.Time, sleep func(context.Context, time.Duration) error, capture func(context.Context) (bool, error)) error {
+	captured := false
+	var lastErr error
+	waitingSince := now()
+	for {
+		progressed, err := capture(ctx)
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		lastErr = err
+		if progressed {
+			captured = true
+			waitingSince = now()
+			continue
+		}
+		if now().Sub(waitingSince) >= grace {
+			break
+		}
+		if err := sleep(ctx, retryInterval); err != nil {
+			return err
+		}
+	}
+	if captured {
+		return nil
+	}
+	return lastErr
+}
+
+// cancelWhenPlaylistStalls cancels a capture whose playlist has not changed for stallAfter.
+func cancelWhenPlaylistStalls(ctx context.Context, cancel context.CancelFunc, path string, stallAfter time.Duration) {
+	ticker := time.NewTicker(stallAfter / 9)
+	defer ticker.Stop()
+	var lastModified time.Time
+	lastChange := time.Now()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if info, err := os.Stat(path); err == nil && !info.ModTime().Equal(lastModified) {
+				lastModified, lastChange = info.ModTime(), time.Now()
+			} else if time.Since(lastChange) >= stallAfter {
+				log.Warn().Str("playlist", path).Msg("live capture stalled; restarting ffmpeg")
+				cancel()
+				return
+			}
+		}
+	}
+}
+
+func sleepContext(ctx context.Context, d time.Duration) error {
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
 }

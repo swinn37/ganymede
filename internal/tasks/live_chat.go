@@ -149,17 +149,21 @@ func (w ConvertLiveChatWorker) Work(ctx context.Context, job *river.Job[ConvertL
 		return err
 	}
 
+	dbItems, err := getDatabaseItems(ctx, store.Client, job.Args.Input.QueueId)
+	if err != nil {
+		return err
+	}
+	// A resumed capture records its runs until it ends; converting earlier would misplace the chat.
+	if dbItems.Queue.TaskVideoDownload == utils.Running {
+		return river.JobSnooze(30 * time.Second)
+	}
+
 	// set queue status to running
 	err = setQueueStatus(ctx, store.Client, QueueStatusInput{
 		Status:  utils.Running,
 		QueueId: job.Args.Input.QueueId,
 		Task:    utils.TaskConvertChat,
 	})
-	if err != nil {
-		return err
-	}
-
-	dbItems, err := getDatabaseItems(ctx, store.Client, job.Args.Input.QueueId)
 	if err != nil {
 		return err
 	}
@@ -233,7 +237,7 @@ func (w ConvertLiveChatWorker) Work(ctx context.Context, job *river.Job[ConvertL
 	}
 
 	// convert chat
-	err = utils.ConvertTwitchLiveChatToTDLChat(dbItems.Video.TmpLiveChatDownloadPath, dbItems.Video.TmpLiveChatConvertPath, dbItems.Channel.Name, dbItems.Video.ID.String(), dbItems.Video.ExtID, channelIdInt, dbItems.Queue.ChatStart, string(previousVideoID))
+	err = utils.ConvertTwitchLiveChatToTDLChat(dbItems.Video.TmpLiveChatDownloadPath, dbItems.Video.TmpLiveChatConvertPath, dbItems.Channel.Name, dbItems.Video.ID.String(), dbItems.Video.ExtID, channelIdInt, dbItems.Queue.ChatStart, string(previousVideoID), dbItems.Queue.LiveCaptureRuns)
 	if err != nil {
 		return err
 	}

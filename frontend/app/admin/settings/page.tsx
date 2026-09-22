@@ -62,6 +62,8 @@ const AdminSettingsPage = () => {
         proxy_enabled: data?.livestream.proxy_enabled ?? true,
         proxy_whitelist: data?.livestream.proxy_whitelist || [],
         watch_while_archiving: data?.livestream.watch_while_archiving ?? false,
+        split_duration_minutes: data?.livestream.split_duration_minutes ?? 0,
+        reconnect_grace_minutes: data?.livestream.reconnect_grace_minutes ?? 0,
       }
     }
   })
@@ -329,6 +331,26 @@ const AdminSettingsPage = () => {
               key={form.key('livestream.watch_while_archiving')}
               {...form.getInputProps('livestream.watch_while_archiving', { type: "checkbox" })}
               mr={15}
+            />
+
+            <NumberInput
+              mt={10}
+              label={t('videoSettings.splitDurationLabel')}
+              description={t('videoSettings.splitDurationDescription')}
+              placeholder="0"
+              key={form.key('livestream.split_duration_minutes')}
+              {...form.getInputProps('livestream.split_duration_minutes')}
+              min={0}
+            />
+
+            <NumberInput
+              mt={10}
+              label={t('videoSettings.reconnectGraceLabel')}
+              description={t('videoSettings.reconnectGraceDescription')}
+              placeholder="0"
+              key={form.key('livestream.reconnect_grace_minutes')}
+              {...form.getInputProps('livestream.reconnect_grace_minutes')}
+              min={0}
             />
 
             <Title mt={5} order={5}>{t('videoSettings.proxySettings')}</Title>

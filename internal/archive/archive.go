@@ -600,7 +600,7 @@ func (s *Service) ArchiveLivestream(ctx context.Context, input ArchiveVideoInput
 
 	// Players look for a temporary HLS only when the capture writes one.
 	cfg := config.Get()
-	captureAsHLS := cfg.Archive.SaveAsHls
+	captureAsHLS := cfg.Archive.SaveAsHls || cfg.LiveArchivePartsEnabled()
 	if captureAsHLS || cfg.Livestream.WatchWhileArchiving {
 		vodDTO.TmpVideoHLSPath = fmt.Sprintf("%s/%s_%s-video_hls0", envConfig.TempDir, video.ID, vUUID)
 	}

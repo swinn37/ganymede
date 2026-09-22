@@ -49,6 +49,8 @@ const (
 	FieldTaskChatMove = "task_chat_move"
 	// FieldChatStart holds the string denoting the chat_start field in the database.
 	FieldChatStart = "chat_start"
+	// FieldLiveCaptureRuns holds the string denoting the live_capture_runs field in the database.
+	FieldLiveCaptureRuns = "live_capture_runs"
 	// FieldArchiveChat holds the string denoting the archive_chat field in the database.
 	FieldArchiveChat = "archive_chat"
 	// FieldRenderChat holds the string denoting the render_chat field in the database.
@@ -93,6 +95,7 @@ var Columns = []string{
 	FieldTaskChatRender,
 	FieldTaskChatMove,
 	FieldChatStart,
+	FieldLiveCaptureRuns,
 	FieldArchiveChat,
 	FieldRenderChat,
 	FieldWorkflowID,

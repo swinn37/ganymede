@@ -617,6 +617,16 @@ func ChatStartNotNil() predicate.Queue {
 	return predicate.Queue(sql.FieldNotNull(FieldChatStart))
 }
 
+// LiveCaptureRunsIsNil applies the IsNil predicate on the "live_capture_runs" field.
+func LiveCaptureRunsIsNil() predicate.Queue {
+	return predicate.Queue(sql.FieldIsNull(FieldLiveCaptureRuns))
+}
+
+// LiveCaptureRunsNotNil applies the NotNil predicate on the "live_capture_runs" field.
+func LiveCaptureRunsNotNil() predicate.Queue {
+	return predicate.Queue(sql.FieldNotNull(FieldLiveCaptureRuns))
+}
+
 // ArchiveChatEQ applies the EQ predicate on the "archive_chat" field.
 func ArchiveChatEQ(v bool) predicate.Queue {
 	return predicate.Queue(sql.FieldEQ(FieldArchiveChat, v))

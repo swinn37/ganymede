@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/riverqueue/river"
@@ -174,7 +175,7 @@ func (w PostProcessVideoWorker) Work(ctx context.Context, job *river.Job[PostPro
 				}
 			}
 		} else {
-			playlistPath := fmt.Sprintf("%s/%s-video.m3u8", dbItems.Video.TmpVideoHlsPath, dbItems.Video.ExtID)
+			playlistPath := tmpHLSPlaylistPath(&dbItems.Video)
 			if err := validateNonEmptyFile(playlistPath, "live HLS playlist"); err != nil {
 				return err
 			}
@@ -211,7 +212,7 @@ func (w PostProcessVideoWorker) Work(ctx context.Context, job *river.Job[PostPro
 	if dbItems.Queue.LiveArchive {
 		tmpVideoPath := dbItems.Video.TmpVideoConvertPath
 		if dbItems.Video.VideoHlsPath != "" {
-			tmpVideoPath = fmt.Sprintf("%s/%s-video.m3u8", dbItems.Video.TmpVideoHlsPath, dbItems.Video.ExtID)
+			tmpVideoPath = tmpHLSPlaylistPath(&dbItems.Video)
 			if err := hls.FinalizeMediaPlaylist(tmpVideoPath); err != nil {
 				return fmt.Errorf("failed to finalize live HLS playlist: %w", err)
 			}
@@ -378,8 +379,12 @@ func (w MoveVideoWorker) Work(ctx context.Context, job *river.Job[MoveVideoArgs]
 			}
 		}
 
+	} else if dbItems.Queue.LiveArchive && config.Get().LiveArchivePartsEnabled() {
+		if err := packLiveHLSVideo(ctx, &dbItems.Video); err != nil {
+			return err
+		}
 	} else {
-		playlistPath := fmt.Sprintf("%s/%s-video.m3u8", dbItems.Video.TmpVideoHlsPath, dbItems.Video.ExtID)
+		playlistPath := tmpHLSPlaylistPath(&dbItems.Video)
 		if err := validateNonEmptyFile(playlistPath, "HLS move source playlist"); err != nil {
 			return err
 		}
@@ -433,5 +438,28 @@ func (w MoveVideoWorker) Work(ctx context.Context, job *river.Job[MoveVideoArgs]
 		return err
 	}
 
+	return nil
+}
+
+// packLiveHLSVideo packs a live HLS capture into .ts parts next to a byte-range playlist in
+// the final directory. The playlist is written last, so when it exists an earlier attempt
+// already finished packing and only the temporary capture is left to remove.
+func packLiveHLSVideo(ctx context.Context, video *ent.Vod) error {
+	if !utils.FileExists(video.VideoPath) {
+		playlistPath := tmpHLSPlaylistPath(video)
+		if err := validateNonEmptyFile(playlistPath, "live HLS capture playlist"); err != nil {
+			return err
+		}
+		if err := utils.CreateDirectory(video.VideoHlsPath); err != nil {
+			return err
+		}
+		maxPart := time.Duration(config.Get().Livestream.SplitDurationMinutes) * time.Minute
+		if err := hls.PackMediaPlaylist(ctx, playlistPath, video.VideoHlsPath, filepath.Base(video.VideoPath), maxPart); err != nil {
+			return fmt.Errorf("failed to pack live HLS capture: %w", err)
+		}
+	}
+	if utils.DirectoryExists(video.TmpVideoHlsPath) {
+		return utils.DeleteDirectory(video.TmpVideoHlsPath)
+	}
 	return nil
 }

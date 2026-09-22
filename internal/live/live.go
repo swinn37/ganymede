@@ -389,12 +389,15 @@ OUTER:
 				if _, found := watchedChannelCategories[strings.ToLower(stream.GameName)]; !found {
 					log.Info().Str("channel", lwc.Edges.Channel.Name).Str("category", stream.GameName).Str("category_restrictions", strings.Join(categoryNamesForLog, ", ")).Msg("stream does not match selected categories, stopping archive")
 					// Stop archive
-					video, err := s.Store.Client.Vod.Query().Where(entVod.ExtStreamID(stream.ID)).WithChannel().WithQueue().Order(ent.Desc(entVod.FieldCreatedAt)).First(ctx)
+					running, err := s.runningLiveArchive(ctx, lwc.Edges.Channel.ID)
 					if err != nil {
-						log.Error().Err(err).Msg("error getting video")
+						log.Error().Err(err).Str("channel", lwc.Edges.Channel.Name).Msg("error getting running live archive")
 						continue OUTER
 					}
-					err = s.QueueService.StopQueueItem(ctx, video.Edges.Queue.ID)
+					if running == nil {
+						continue OUTER
+					}
+					err = s.QueueService.StopQueueItem(ctx, running.ID)
 					if err != nil {
 						log.Error().Err(err).Msg("error stopping live stream archive")
 						continue OUTER
@@ -407,7 +410,7 @@ OUTER:
 			}
 
 			// Run chapter update, this needs to be done before additional checks to cover the case where a stream is being archived but fails restriction checks
-			err = s.updateLiveStreamArchiveChapter(stream)
+			err = s.updateLiveStreamArchiveChapter(ctx, stream, lwc.Edges.Channel.ID)
 			if err != nil {
 				log.Error().Err(err).Msg("error updating live stream archive chapter")
 			}
@@ -459,16 +462,14 @@ OUTER:
 					}
 				}
 
-				// check if stream is already being archived
-				queueItems, err := database.DB().Client.Queue.Query().Where(entQueue.Processing(true)).WithVod().All(ctx)
+				// check if stream is already being archived, possibly resumed under a new stream ID
+				running, err := s.runningLiveArchive(ctx, lwc.Edges.Channel.ID)
 				if err != nil {
 					log.Error().Err(err).Msg("error getting queue items")
 				}
-				for _, queueItem := range queueItems {
-					if queueItem.Edges.Vod.ExtID == stream.ID && queueItem.TaskVideoDownload == utils.Running {
-						log.Debug().Msgf("%s is already being archived", lwc.Edges.Channel.Name)
-						continue OUTER
-					}
+				if running != nil {
+					log.Debug().Msgf("%s is already being archived", lwc.Edges.Channel.Name)
+					continue OUTER
 				}
 
 				// Check if the stream is really live or if the API is just slow to update (GH#760)
@@ -562,17 +563,46 @@ func channelInLiveStreamInfo(a string, list []platform.LiveStreamInfo) platform.
 	return platform.LiveStreamInfo{}
 }
 
+// runningLiveArchive returns the queue, with its video, of the live capture running for a
+// channel, or nil. A capture resumed after a stream drop keeps the video it started with even
+// if the platform assigned the stream a new ID.
+func (s *Service) runningLiveArchive(ctx context.Context, channelID uuid.UUID) (*ent.Queue, error) {
+	running, err := s.Store.Client.Queue.Query().
+		Where(
+			entQueue.LiveArchive(true),
+			entQueue.Processing(true),
+			entQueue.TaskVideoDownloadEQ(utils.Running),
+			entQueue.HasVodWith(entVod.HasChannelWith(channel.ID(channelID))),
+		).
+		WithVod().
+		Order(ent.Desc(entQueue.FieldCreatedAt)).
+		First(ctx)
+	if ent.IsNotFound(err) {
+		return nil, nil
+	}
+	return running, err
+}
+
 // updateLiveStreamArchiveChapter updates the last chapter of a live stream archive if the category has changed.
-func (s *Service) updateLiveStreamArchiveChapter(stream platform.LiveStreamInfo) error {
-	// Get video
-	video, err := s.Store.Client.Vod.Query().Where(entVod.ExtStreamID(stream.ID)).Order(ent.Desc(entVod.FieldCreatedAt)).First(context.Background())
+func (s *Service) updateLiveStreamArchiveChapter(ctx context.Context, stream platform.LiveStreamInfo, channelID uuid.UUID) error {
+	// Get video: the running capture first, as a resumed one may have started under another stream ID
+	running, err := s.runningLiveArchive(ctx, channelID)
 	if err != nil {
-		if _, ok := err.(*ent.NotFoundError); ok {
-			// Video not found, likely not archived yet because of restrictions
-			return nil
-		}
-		log.Error().Err(err).Msg("error getting video")
 		return err
+	}
+	var video *ent.Vod
+	if running != nil {
+		video = running.Edges.Vod
+	} else {
+		video, err = s.Store.Client.Vod.Query().Where(entVod.ExtStreamID(stream.ID)).Order(ent.Desc(entVod.FieldCreatedAt)).First(ctx)
+		if err != nil {
+			if _, ok := err.(*ent.NotFoundError); ok {
+				// Video not found, likely not archived yet because of restrictions
+				return nil
+			}
+			log.Error().Err(err).Msg("error getting video")
+			return err
+		}
 	}
 
 	// Get vod chapters

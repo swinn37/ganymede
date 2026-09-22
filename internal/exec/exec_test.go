@@ -659,6 +659,78 @@ func Test_extractSharedChatArgs(t *testing.T) {
 	}
 }
 
+func TestLiveCaptureArgs(t *testing.T) {
+	t.Parallel()
+
+	input := []string{"-y", "-hide_banner", "-fflags", "+genpts+discardcorrupt", "-rw_timeout", "30000000", "-timeout", "30000000", "-i", "https://live/in.m3u8",
+		"-map", "0", "-dn", "-ignore_unknown", "-c", "copy", "-c:v", "copy", "-c:a", "copy"}
+	mp4Video := ent.Vod{ExtID: "123", TmpVideoDownloadPath: "/tmp/123_u-video.ts", TmpVideoHlsPath: "/tmp/123_u-video_hls0"}
+	hlsVideo := ent.Vod{ExtID: "123", TmpVideoDownloadPath: "/tmp/123_u-video_hls0/123-video.m3u8", TmpVideoHlsPath: "/tmp/123_u-video_hls0", VideoHlsPath: "/videos/c/f/123-video_hls"}
+
+	tests := []struct {
+		name     string
+		watch    bool
+		resumeAt float64
+		video    ent.Vod
+		want     []string
+	}{
+		{
+			name:  "mp4",
+			video: mp4Video,
+			want:  append(append([]string{}, input...), "-f", "mpegts", "/tmp/123_u-video.ts"),
+		},
+		{
+			// A resumed run continues the timeline of the previous runs.
+			name:     "hls resumed",
+			resumeAt: 25.5,
+			video:    hlsVideo,
+			want: append(append([]string{}, input...), "-output_ts_offset", "26.500000",
+				"-start_number", "0", "-hls_time", "10", "-hls_list_size", "0", "-hls_playlist_type", "event",
+				"-hls_flags", "append_list+independent_segments+omit_endlist",
+				"-hls_segment_filename", "/tmp/123_u-video_hls0/123_segment%06d.ts", "-f", "hls", "/tmp/123_u-video_hls0/123-video.m3u8"),
+		},
+		{
+			name:  "mp4 with watch while archiving",
+			watch: true,
+			video: mp4Video,
+			want: append(append([]string{}, input...), "-f", "mpegts", "/tmp/123_u-video.ts",
+				"-map", "0", "-dn", "-ignore_unknown", "-c", "copy",
+				"-start_number", "0", "-hls_time", "2", "-hls_list_size", "0", "-hls_playlist_type", "event",
+				"-hls_flags", "append_list+independent_segments",
+				"-hls_segment_filename", "/tmp/123_u-video_hls0/123_segment%06d.ts", "-f", "hls", "/tmp/123_u-video_hls0/123-video.m3u8"),
+		},
+		{
+			// Streams are mapped once, and resumed captures keep appending to the same playlist.
+			name:  "hls",
+			watch: true,
+			video: hlsVideo,
+			want: append(append([]string{}, input...),
+				"-start_number", "0", "-hls_time", "10", "-hls_list_size", "0", "-hls_playlist_type", "event",
+				"-hls_flags", "append_list+independent_segments+omit_endlist",
+				"-hls_segment_filename", "/tmp/123_u-video_hls0/123_segment%06d.ts", "-f", "hls", "/tmp/123_u-video_hls0/123-video.m3u8"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := liveCaptureArgs("https://live/in.m3u8", false, []string{"-c:v", "copy", "-c:a", "copy"}, tt.watch, tt.resumeAt, tt.video)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("liveCaptureArgs() =\n%v\nwant\n%v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsAV1Variant(t *testing.T) {
+	t.Parallel()
+	if !isAV1Variant([]string{"av01.0.08M.08", "mp4a.40.2"}) {
+		t.Error("AV1 variant not detected")
+	}
+	if isAV1Variant([]string{"avc1.64002A", "mp4a.40.2"}) || isAV1Variant([]string{"hvc1.2.4.L123.B0"}) {
+		t.Error("H.264/HEVC variant detected as AV1")
+	}
+}
+
 func Test_appendFFmpegLiveOutputStreamArgs(t *testing.T) {
 	tests := []struct {
 		name      string

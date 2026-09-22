@@ -27,11 +27,13 @@ type Config struct {
 	} `json:"archive"`
 	StorageTemplates StorageTemplate `json:"storage_templates"` // Storage folder/file templates.
 	Livestream       struct {
-		Proxies             []ProxyListItem `json:"proxies" validate:"dive"` // List of proxies for live stream download.
-		ProxyEnabled        bool            `json:"proxy_enabled"`           // Enable proxy usage.
-		ProxyParameters     string          `json:"proxy_parameters"`        // Query parameters for proxy URL.
-		ProxyWhitelist      []string        `json:"proxy_whitelist"`         // Channels exempt from proxy.
-		WatchWhileArchiving bool            `json:"watch_while_archiving"`   // Allow watching live streams while archiving them by downloading a temporary HLS stream.
+		Proxies               []ProxyListItem `json:"proxies" validate:"dive"`                  // List of proxies for live stream download.
+		ProxyEnabled          bool            `json:"proxy_enabled"`                            // Enable proxy usage.
+		ProxyParameters       string          `json:"proxy_parameters"`                         // Query parameters for proxy URL.
+		ProxyWhitelist        []string        `json:"proxy_whitelist"`                          // Channels exempt from proxy.
+		WatchWhileArchiving   bool            `json:"watch_while_archiving"`                    // Allow watching live streams while archiving them by downloading a temporary HLS stream.
+		SplitDurationMinutes  int             `json:"split_duration_minutes" validate:"gte=0"`  // Split live archives into .ts parts of at most this many minutes (0 = no split); captures live streams as HLS.
+		ReconnectGraceMinutes int             `json:"reconnect_grace_minutes" validate:"gte=0"` // Resume a dropped live stream into the same video if it returns within this many minutes (0 = disabled); captures live streams as HLS.
 	} `json:"livestream"`
 	Experimental struct {
 		BetterLiveStreamDetectionAndCleanup bool `json:"better_live_stream_detection_and_cleanup"` // [EXPERIMENTAL] Enable enhanced detection and cleanup.
@@ -194,6 +196,12 @@ func saveConfigUnsafe(cfg *Config) error {
 	return os.WriteFile(configFile, data, 0644)
 }
 
+// LiveArchivePartsEnabled reports whether live streams are captured as HLS and packed into
+// .ts parts when archived, which splitting and resuming after a drop both rely on.
+func (c *Config) LiveArchivePartsEnabled() bool {
+	return c.Livestream.SplitDurationMinutes > 0 || c.Livestream.ReconnectGraceMinutes > 0
+}
+
 // SetDefaults initializes all fields of Config to their default values.
 func (c *Config) SetDefaults() {
 	c.LiveCheckInterval = 300
@@ -221,6 +229,8 @@ func (c *Config) SetDefaults() {
 	c.Livestream.ProxyParameters = "%3Fplayer%3Dtwitchweb%26type%3Dany%26allow_source%3Dtrue%26allow_audio_only%3Dtrue%26allow_spectre%3Dfalse%26fast_bread%3Dtrue"
 	c.Livestream.ProxyWhitelist = []string{}
 	c.Livestream.WatchWhileArchiving = false
+	c.Livestream.SplitDurationMinutes = 0
+	c.Livestream.ReconnectGraceMinutes = 0
 
 	c.LogRetentionDays = 30
 

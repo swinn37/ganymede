@@ -428,21 +428,21 @@ func init() {
 	// queue.DefaultProcessing holds the default value on creation for the processing field.
 	queue.DefaultProcessing = queueDescProcessing.Default.(bool)
 	// queueDescArchiveChat is the schema descriptor for archive_chat field.
-	queueDescArchiveChat := queueFields[17].Descriptor()
+	queueDescArchiveChat := queueFields[18].Descriptor()
 	// queue.DefaultArchiveChat holds the default value on creation for the archive_chat field.
 	queue.DefaultArchiveChat = queueDescArchiveChat.Default.(bool)
 	// queueDescRenderChat is the schema descriptor for render_chat field.
-	queueDescRenderChat := queueFields[18].Descriptor()
+	queueDescRenderChat := queueFields[19].Descriptor()
 	// queue.DefaultRenderChat holds the default value on creation for the render_chat field.
 	queue.DefaultRenderChat = queueDescRenderChat.Default.(bool)
 	// queueDescUpdatedAt is the schema descriptor for updated_at field.
-	queueDescUpdatedAt := queueFields[21].Descriptor()
+	queueDescUpdatedAt := queueFields[22].Descriptor()
 	// queue.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	queue.DefaultUpdatedAt = queueDescUpdatedAt.Default.(func() time.Time)
 	// queue.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
 	queue.UpdateDefaultUpdatedAt = queueDescUpdatedAt.UpdateDefault.(func() time.Time)
 	// queueDescCreatedAt is the schema descriptor for created_at field.
-	queueDescCreatedAt := queueFields[22].Descriptor()
+	queueDescCreatedAt := queueFields[23].Descriptor()
 	// queue.DefaultCreatedAt holds the default value on creation for the created_at field.
 	queue.DefaultCreatedAt = queueDescCreatedAt.Default.(func() time.Time)
 	// queueDescID is the schema descriptor for id field.

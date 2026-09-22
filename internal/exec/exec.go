@@ -75,6 +75,71 @@ func appendFFmpegLiveOutputStreamArgs(args []string, audioOnly bool) []string {
 	)
 }
 
+// liveCaptureArgs builds the ffmpeg arguments of a live capture. MP4 archives are captured
+// to crash-tolerant MPEG-TS, optionally with a temporary HLS copy to watch while archiving,
+// and finalized in post-process. HLS archives append to the playlist at TmpVideoDownloadPath,
+// so a resumed capture continues it after an EXT-X-DISCONTINUITY; resumeAt (the seconds
+// already captured) shifts its timestamps so the archive keeps one monotonic timeline.
+func liveCaptureArgs(inputURI string, audioOnly bool, convertArgs []string, watchWhileArchiving bool, resumeAt float64, video ent.Vod) []string {
+	args := []string{
+		"-y",
+		"-hide_banner",
+		"-fflags", "+genpts+discardcorrupt",
+		"-rw_timeout", "30000000", // 30 second timeout for ffmpeg to connect/read before it gives up and retries
+		"-timeout", "30000000", // 30 second timeout for ffmpeg to connect/read before it gives up and retries
+		"-i", inputURI,
+	}
+	args = appendFFmpegLiveOutputStreamArgs(args, audioOnly)
+	// User-defined (global) params apply to the first output
+	args = append(args, convertArgs...)
+
+	segmentPattern := fmt.Sprintf("%s/%s_segment%%06d.ts", video.TmpVideoHlsPath, video.ExtID)
+	if video.VideoHlsPath != "" {
+		if resumeAt > 0 {
+			// The extra second clears the audio tail of the previous run. Players still follow the
+			// playlist durations, which hls.js realigns at each discontinuity.
+			args = append(args, "-output_ts_offset", strconv.FormatFloat(resumeAt+1, 'f', 6, 64))
+		}
+		// omit_endlist keeps live viewers following the playlist while a dropped stream is resumed;
+		// post-process adds the ENDLIST.
+		return append(args,
+			"-start_number", "0",
+			"-hls_time", "10",
+			"-hls_list_size", "0",
+			"-hls_playlist_type", "event",
+			"-hls_flags", "append_list+independent_segments+omit_endlist",
+			"-hls_segment_filename", segmentPattern,
+			"-f", "hls",
+			video.TmpVideoDownloadPath,
+		)
+	}
+
+	args = append(args, "-f", "mpegts", video.TmpVideoDownloadPath)
+	if watchWhileArchiving {
+		args = appendFFmpegLiveOutputStreamArgs(args, audioOnly)
+		args = append(args,
+			"-start_number", "0",
+			"-hls_time", "2",
+			"-hls_list_size", "0",
+			"-hls_playlist_type", "event",
+			"-hls_flags", "append_list+independent_segments",
+			"-hls_segment_filename", segmentPattern,
+			"-f", "hls",
+			fmt.Sprintf("%s/%s-video.m3u8", video.TmpVideoHlsPath, video.ExtID),
+		)
+	}
+	return args
+}
+
+func isAV1Variant(codecs []string) bool {
+	for _, codec := range codecs {
+		if strings.HasPrefix(strings.TrimSpace(codec), "av01") {
+			return true
+		}
+	}
+	return false
+}
+
 func appendYtDlpVideoConfigArgs(args []string, configArgs string) []string {
 	skipValue := false
 	for _, arg := range strings.Split(configArgs, ",") {
@@ -232,13 +297,19 @@ func DownloadTwitchVideo(ctx context.Context, video ent.Vod) error {
 	return nil
 }
 
-func DownloadTwitchLiveVideo(ctx context.Context, video ent.Vod, channel ent.Channel, startChat chan bool) error {
+// ErrLiveStreamUnavailable means no playlist could be fetched for the live stream, usually
+// because it is offline, so ffmpeg was never started.
+var ErrLiveStreamUnavailable = stdErrors.New("live stream unavailable")
+
+// DownloadTwitchLiveVideo captures the live stream until ffmpeg exits or ctx is cancelled.
+// onStart is called right before ffmpeg starts.
+func DownloadTwitchLiveVideo(ctx context.Context, video ent.Vod, channel ent.Channel, onStart func()) error {
 	video.Edges.Channel = &channel
 	env := config.GetEnvConfig()
 
-	// open video log file
+	// open video log file, appending so every run of a resumed capture is kept
 	logFilePath := fmt.Sprintf("%s/%s-video.log", env.LogsDir, video.ID.String())
-	file, err := os.Create(logFilePath)
+	file, err := os.OpenFile(logFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
 	if err != nil {
 		return fmt.Errorf("failed to open log file: %w", err)
 	}
@@ -291,13 +362,19 @@ func DownloadTwitchLiveVideo(ctx context.Context, video ent.Vod, channel ent.Cha
 		tc := &platform.TwitchConnection{}
 		masterPlaylist, err = tc.GetStream(ctx, channel.Name)
 		if err != nil {
-			return fmt.Errorf("failed to get stream: %v", err)
+			return fmt.Errorf("%w: failed to get stream: %v", ErrLiveStreamUnavailable, err)
 		}
 	}
+
+	archivingAsMP4 := (video.VideoHlsPath == "")
 
 	qualities := make([]string, 0, len(masterPlaylist.Variants))
 	qualitiesURI := make(map[string]string, len(masterPlaylist.Variants))
 	for _, variant := range masterPlaylist.Variants {
+		// HLS archives keep MPEG-TS segments, in which hls.js cannot play AV1.
+		if !archivingAsMP4 && isAV1Variant(variant.Codecs) {
+			continue
+		}
 		qualities = append(qualities, variant.Video)
 		qualitiesURI[variant.Video] = variant.URI
 	}
@@ -315,79 +392,20 @@ func DownloadTwitchLiveVideo(ctx context.Context, video ent.Vod, channel ent.Cha
 
 	audioOnly := closestQuality == "audio_only"
 
-	// Base ffmpeg args (shared between transport-stream and hls live archiving)
-	ffmpegArgs := []string{
-		"-y",
-		"-hide_banner",
-		"-fflags", "+genpts+discardcorrupt",
-		"-rw_timeout", "30000000", // 30 second timeout for ffmpeg to connect/read before it gives up and retries
-		"-timeout", "30000000", // 30 second timeout for ffmpeg to connect/read before it gives up and retries
-		"-i", qualitiesURI[closestQuality],
-	}
-	ffmpegArgs = appendFFmpegLiveOutputStreamArgs(ffmpegArgs, audioOnly)
-
-	// Decide archive format.
-	archivingAsMP4 := (video.VideoHlsPath == "")
-
-	// Append user-defined (global) params before outputs
-	videoConvertString := config.Get().Parameters.VideoConvert
-	videoConvertArgs := strings.Fields(videoConvertString)
-	ffmpegArgs = append(ffmpegArgs, videoConvertArgs...)
-
-	// Archive output
-	if archivingAsMP4 {
-		// Archive to crash-tolerant MPEG-TS while live; finalize to MP4 in post-process.
-		ffmpegArgs = append(ffmpegArgs,
-			"-f", "mpegts",
-			video.TmpVideoDownloadPath,
-		)
-
-		// Also archive HLS for watch-while-archiving
-		if config.Get().Livestream.WatchWhileArchiving && video.TmpVideoHlsPath != "" {
-			if err := utils.CreateDirectory(video.TmpVideoHlsPath); err != nil {
-				return fmt.Errorf("error creating hls directory: %w", err)
-			}
-
-			playlistPath := fmt.Sprintf("%s/%s-video.m3u8", video.TmpVideoHlsPath, video.ExtID)
-			segmentPattern := fmt.Sprintf("%s/%s_segment%%06d.ts", video.TmpVideoHlsPath, video.ExtID)
-
-			ffmpegArgs = append(ffmpegArgs,
-				appendFFmpegLiveOutputStreamArgs(nil, audioOnly)...,
-			)
-			ffmpegArgs = append(ffmpegArgs,
-				"-start_number", "0",
-				"-hls_time", "2",
-				"-hls_list_size", "0",
-				"-hls_playlist_type", "event",
-				"-hls_flags", "append_list+independent_segments",
-				"-hls_segment_filename", segmentPattern,
-				"-f", "hls",
-				playlistPath,
-			)
-		}
-	} else {
-		// Archive as HLS
+	watchWhileArchiving := archivingAsMP4 && config.Get().Livestream.WatchWhileArchiving && video.TmpVideoHlsPath != ""
+	if !archivingAsMP4 || watchWhileArchiving {
 		if err := utils.CreateDirectory(video.TmpVideoHlsPath); err != nil {
 			return fmt.Errorf("error creating hls directory: %w", err)
 		}
-
-		playlistPath := fmt.Sprintf("%s/%s-video.m3u8", video.TmpVideoHlsPath, video.ExtID)
-		segmentPattern := fmt.Sprintf("%s/%s_segment%%06d.ts", video.TmpVideoHlsPath, video.ExtID)
-
-		ffmpegArgs = append(ffmpegArgs,
-			appendFFmpegLiveOutputStreamArgs(nil, audioOnly)...,
-		)
-		ffmpegArgs = append(ffmpegArgs,
-			"-start_number", "0",
-			"-hls_time", "10",
-			"-hls_list_size", "0",
-			"-hls_playlist_type", "event",
-			"-hls_flags", "append_list+independent_segments",
-			"-hls_segment_filename", segmentPattern,
-			"-f", "hls",
-			playlistPath,
-		)
 	}
+	resumeAt := 0.0
+	if !archivingAsMP4 && utils.FileExists(video.TmpVideoDownloadPath) {
+		if resumeAt, err = hls.MediaPlaylistDuration(video.TmpVideoDownloadPath); err != nil {
+			return fmt.Errorf("error reading live hls playlist: %w", err)
+		}
+	}
+	videoConvertArgs := strings.Fields(config.Get().Parameters.VideoConvert)
+	ffmpegArgs := liveCaptureArgs(qualitiesURI[closestQuality], audioOnly, videoConvertArgs, watchWhileArchiving, resumeAt, video)
 
 	// Run ffmpeg
 	cmd := osExec.Command("ffmpeg", ffmpegArgs...)
@@ -395,8 +413,7 @@ func DownloadTwitchLiveVideo(ctx context.Context, video ent.Vod, channel ent.Cha
 
 	log.Debug().Str("channel", channel.Name).Str("cmd", strings.Join(cmd.Args, " ")).Msgf("running ffmpeg")
 
-	// start chat download
-	startChat <- true
+	onStart()
 
 	cmd.Stderr = file
 	cmd.Stdout = file

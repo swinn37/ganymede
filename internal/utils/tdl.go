@@ -96,7 +96,9 @@ type LiveChat struct {
 	Comments []LiveComment `json:"comments"`
 }
 
-func ConvertTwitchLiveChatToTDLChat(path string, outPath string, channelName string, videoID string, videoExternalID string, channelID int, chatStartTime time.Time, previousVideoID string) error {
+// ConvertTwitchLiveChatToTDLChat converts a live chat capture to TwitchDownloader JSON.
+// runs, when set, removes the time the stream was down from comment offsets.
+func ConvertTwitchLiveChatToTDLChat(path string, outPath string, channelName string, videoID string, videoExternalID string, channelID int, chatStartTime time.Time, previousVideoID string, runs []LiveCaptureRun) error {
 	log.Debug().Str("chat_file", path).Msg("Converting live Twitch chat to TDL chat for rendering")
 
 	liveChatJSONFile, err := os.Open(path)
@@ -168,7 +170,7 @@ func ConvertTwitchLiveChatToTDLChat(path string, outPath string, channelName str
 	videoEnd := int64(initialComment.ContentOffsetSeconds)
 
 	err = streamLiveComments(liveChatJSONFile, func(liveComment LiveComment) error {
-		tdlComment, include, err := convertLiveCommentToTDLComment(liveComment, chatStartTime)
+		tdlComment, include, err := convertLiveCommentToTDLComment(liveComment, chatStartTime, runs)
 		if err != nil {
 			return err
 		}
@@ -296,7 +298,37 @@ func initialTDLComment() Comment {
 	}
 }
 
-func convertLiveCommentToTDLComment(liveComment LiveComment, chatStartTime time.Time) (Comment, bool, error) {
+// LiveCaptureRun is one ffmpeg run of a live capture resumed after stream drops: when it
+// started and stopped, and where its content starts in the archived video (seconds).
+type LiveCaptureRun struct {
+	WallStart   time.Time `json:"wall_start"`
+	WallEnd     time.Time `json:"wall_end"`
+	VideoOffset float64   `json:"video_offset"`
+}
+
+// liveChatOffset places a chat message on the video timeline. Without capture runs it is
+// relative to chatStart. With runs, the time the stream was down is cut out: messages sent
+// during a gap land where the next run starts, and messages after the capture are dropped.
+func liveChatOffset(sentAt, chatStart time.Time, runs []LiveCaptureRun) (float64, bool) {
+	if len(runs) == 0 {
+		return sentAt.Sub(chatStart).Seconds(), true
+	}
+	if last := runs[len(runs)-1]; !last.WallEnd.IsZero() && sentAt.After(last.WallEnd) {
+		return 0, false
+	}
+
+	run := 0
+	for run+1 < len(runs) && !runs[run+1].WallStart.After(sentAt) {
+		run++
+	}
+	offset := runs[run].VideoOffset + sentAt.Sub(runs[run].WallStart).Seconds()
+	if run+1 < len(runs) {
+		offset = min(offset, runs[run+1].VideoOffset)
+	}
+	return offset, true
+}
+
+func convertLiveCommentToTDLComment(liveComment LiveComment, chatStartTime time.Time, runs []LiveCaptureRun) (Comment, bool, error) {
 	if liveComment.Message == "" {
 		return Comment{}, false, nil
 	}
@@ -305,10 +337,13 @@ func convertLiveCommentToTDLComment(liveComment LiveComment, chatStartTime time.
 	if err != nil {
 		return Comment{}, false, fmt.Errorf("failed to convert live comment timestamp: %v", err)
 	}
-	diff := liveCommentUnix.Sub(chatStartTime)
+	offset, keep := liveChatOffset(liveCommentUnix, chatStartTime, runs)
+	if !keep {
+		return Comment{}, false, nil
+	}
 
 	tdlComment := Comment{
-		ContentOffsetSeconds: diff.Seconds(),
+		ContentOffsetSeconds: offset,
 		ID:                   liveComment.MessageID,
 		Source:               "chat",
 		Commenter: Commenter{

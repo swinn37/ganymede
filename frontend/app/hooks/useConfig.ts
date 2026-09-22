@@ -24,6 +24,8 @@ export interface Config {
     proxy_enabled: boolean;
     proxy_whitelist: string[];
     watch_while_archiving: boolean;
+    split_duration_minutes: number;
+    reconnect_grace_minutes: number;
   };
 }
 

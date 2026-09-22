@@ -71,7 +71,7 @@ func TestConvertTwitchLiveChatToTDLChatKeepsMessagesAndUserNotices(t *testing.T)
 		t.Fatalf("failed to write live comments: %v", err)
 	}
 
-	err = ConvertTwitchLiveChatToTDLChat(inputPath, outputPath, "clippyassistant", "video-id", "external-id", 408892348, chatStart, "previous-video-id")
+	err = ConvertTwitchLiveChatToTDLChat(inputPath, outputPath, "clippyassistant", "video-id", "external-id", 408892348, chatStart, "previous-video-id", nil)
 	if err != nil {
 		t.Fatalf("ConvertTwitchLiveChatToTDLChat returned error: %v", err)
 	}
@@ -255,7 +255,7 @@ func TestConvertTwitchLiveChatToTDLChatStreamsLargeInput(t *testing.T) {
 		t.Fatalf("failed to close input chat: %v", err)
 	}
 
-	if err := ConvertTwitchLiveChatToTDLChat(inputPath, outputPath, "channel", "video-id", "external-id", 123, chatStart, "previous-video-id"); err != nil {
+	if err := ConvertTwitchLiveChatToTDLChat(inputPath, outputPath, "channel", "video-id", "external-id", 123, chatStart, "previous-video-id", nil); err != nil {
 		t.Fatalf("ConvertTwitchLiveChatToTDLChat returned error: %v", err)
 	}
 
@@ -355,7 +355,7 @@ func TestConvertTwitchLiveChatToTDLChatDoesNotReplaceOutputOnInvalidInput(t *tes
 		t.Fatalf("failed to write existing output chat: %v", err)
 	}
 
-	err = ConvertTwitchLiveChatToTDLChat(inputPath, outputPath, "channel", "video-id", "external-id", 123, time.Now(), "previous-video-id")
+	err = ConvertTwitchLiveChatToTDLChat(inputPath, outputPath, "channel", "video-id", "external-id", 123, time.Now(), "previous-video-id", nil)
 	if err == nil {
 		t.Fatal("expected conversion error for truncated input")
 	}
@@ -394,7 +394,7 @@ func TestConvertLiveCommentToTDLCommentRejectsMalformedEmoteLocations(t *testing
 				},
 			}
 
-			if _, _, err := convertLiveCommentToTDLComment(comment, chatStart); err == nil {
+			if _, _, err := convertLiveCommentToTDLComment(comment, chatStart, nil); err == nil {
 				t.Fatalf("expected malformed emote location %q to return an error", location)
 			}
 		})
@@ -421,7 +421,7 @@ func TestConvertLiveCommentToTDLCommentSkipsOverlappingEmoteFragments(t *testing
 		},
 	}
 
-	converted, include, err := convertLiveCommentToTDLComment(comment, chatStart)
+	converted, include, err := convertLiveCommentToTDLComment(comment, chatStart, nil)
 	if err != nil {
 		t.Fatalf("expected overlapping emote to be skipped, got error: %v", err)
 	}

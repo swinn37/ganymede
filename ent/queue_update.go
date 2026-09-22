@@ -10,6 +10,7 @@ import (
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
+	"entgo.io/ent/dialect/sql/sqljson"
 	"entgo.io/ent/schema/field"
 	"github.com/google/uuid"
 	"github.com/zibbp/ganymede/ent/predicate"
@@ -321,6 +322,24 @@ func (_u *QueueUpdate) ClearChatStart() *QueueUpdate {
 	return _u
 }
 
+// SetLiveCaptureRuns sets the "live_capture_runs" field.
+func (_u *QueueUpdate) SetLiveCaptureRuns(v []utils.LiveCaptureRun) *QueueUpdate {
+	_u.mutation.SetLiveCaptureRuns(v)
+	return _u
+}
+
+// AppendLiveCaptureRuns appends value to the "live_capture_runs" field.
+func (_u *QueueUpdate) AppendLiveCaptureRuns(v []utils.LiveCaptureRun) *QueueUpdate {
+	_u.mutation.AppendLiveCaptureRuns(v)
+	return _u
+}
+
+// ClearLiveCaptureRuns clears the value of the "live_capture_runs" field.
+func (_u *QueueUpdate) ClearLiveCaptureRuns() *QueueUpdate {
+	_u.mutation.ClearLiveCaptureRuns()
+	return _u
+}
+
 // SetArchiveChat sets the "archive_chat" field.
 func (_u *QueueUpdate) SetArchiveChat(v bool) *QueueUpdate {
 	_u.mutation.SetArchiveChat(v)
@@ -615,6 +634,17 @@ func (_u *QueueUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.ChatStartCleared() {
 		_spec.ClearField(queue.FieldChatStart, field.TypeTime)
+	}
+	if value, ok := _u.mutation.LiveCaptureRuns(); ok {
+		_spec.SetField(queue.FieldLiveCaptureRuns, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedLiveCaptureRuns(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, queue.FieldLiveCaptureRuns, value)
+		})
+	}
+	if _u.mutation.LiveCaptureRunsCleared() {
+		_spec.ClearField(queue.FieldLiveCaptureRuns, field.TypeJSON)
 	}
 	if value, ok := _u.mutation.ArchiveChat(); ok {
 		_spec.SetField(queue.FieldArchiveChat, field.TypeBool, value)
@@ -982,6 +1012,24 @@ func (_u *QueueUpdateOne) ClearChatStart() *QueueUpdateOne {
 	return _u
 }
 
+// SetLiveCaptureRuns sets the "live_capture_runs" field.
+func (_u *QueueUpdateOne) SetLiveCaptureRuns(v []utils.LiveCaptureRun) *QueueUpdateOne {
+	_u.mutation.SetLiveCaptureRuns(v)
+	return _u
+}
+
+// AppendLiveCaptureRuns appends value to the "live_capture_runs" field.
+func (_u *QueueUpdateOne) AppendLiveCaptureRuns(v []utils.LiveCaptureRun) *QueueUpdateOne {
+	_u.mutation.AppendLiveCaptureRuns(v)
+	return _u
+}
+
+// ClearLiveCaptureRuns clears the value of the "live_capture_runs" field.
+func (_u *QueueUpdateOne) ClearLiveCaptureRuns() *QueueUpdateOne {
+	_u.mutation.ClearLiveCaptureRuns()
+	return _u
+}
+
 // SetArchiveChat sets the "archive_chat" field.
 func (_u *QueueUpdateOne) SetArchiveChat(v bool) *QueueUpdateOne {
 	_u.mutation.SetArchiveChat(v)
@@ -1306,6 +1354,17 @@ func (_u *QueueUpdateOne) sqlSave(ctx context.Context) (_node *Queue, err error)
 	}
 	if _u.mutation.ChatStartCleared() {
 		_spec.ClearField(queue.FieldChatStart, field.TypeTime)
+	}
+	if value, ok := _u.mutation.LiveCaptureRuns(); ok {
+		_spec.SetField(queue.FieldLiveCaptureRuns, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedLiveCaptureRuns(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, queue.FieldLiveCaptureRuns, value)
+		})
+	}
+	if _u.mutation.LiveCaptureRunsCleared() {
+		_spec.ClearField(queue.FieldLiveCaptureRuns, field.TypeJSON)
 	}
 	if value, ok := _u.mutation.ArchiveChat(); ok {
 		_spec.SetField(queue.FieldArchiveChat, field.TypeBool, value)

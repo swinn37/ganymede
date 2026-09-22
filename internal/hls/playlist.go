@@ -72,8 +72,10 @@ func FinalizeMediaPlaylist(path string) error {
 }
 
 func writeFileAtomic(path string, data []byte) error {
-	info, err := os.Stat(path)
-	if err != nil {
+	mode := os.FileMode(0o644)
+	if info, err := os.Stat(path); err == nil {
+		mode = info.Mode()
+	} else if !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
 
@@ -93,7 +95,7 @@ func writeFileAtomic(path string, data []byte) error {
 	if _, err := tmpFile.Write(data); err != nil {
 		return errors.Join(err, tmpFile.Close())
 	}
-	if err := tmpFile.Chmod(info.Mode()); err != nil {
+	if err := tmpFile.Chmod(mode); err != nil {
 		return errors.Join(err, tmpFile.Close())
 	}
 	if err := tmpFile.Sync(); err != nil {

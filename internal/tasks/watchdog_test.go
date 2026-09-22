@@ -95,21 +95,21 @@ func TestFileIsStalled(t *testing.T) {
 	require.NoError(t, os.WriteFile(path, []byte("partial media"), 0o600))
 
 	require.NoError(t, os.Chtimes(path, now.Add(-liveArchiveMediaStallTimeout+time.Second), now.Add(-liveArchiveMediaStallTimeout+time.Second)))
-	stalled, err := fileIsStalled(path, nil, now)
+	stalled, err := fileIsStalled(path, nil, now, liveArchiveMediaStallTimeout)
 	require.NoError(t, err)
 	require.False(t, stalled)
 
 	require.NoError(t, os.Chtimes(path, now.Add(-liveArchiveMediaStallTimeout), now.Add(-liveArchiveMediaStallTimeout)))
-	stalled, err = fileIsStalled(path, nil, now)
+	stalled, err = fileIsStalled(path, nil, now, liveArchiveMediaStallTimeout)
 	require.NoError(t, err)
 	require.True(t, stalled)
 
-	stalled, err = fileIsStalled(filepath.Join(t.TempDir(), "missing.ts"), nil, now)
+	stalled, err = fileIsStalled(filepath.Join(t.TempDir(), "missing.ts"), nil, now, liveArchiveMediaStallTimeout)
 	require.NoError(t, err)
 	require.False(t, stalled)
 
 	startedAt := now.Add(-liveArchiveMediaStallTimeout)
-	stalled, err = fileIsStalled(filepath.Join(t.TempDir(), "missing.ts"), &startedAt, now)
+	stalled, err = fileIsStalled(filepath.Join(t.TempDir(), "missing.ts"), &startedAt, now, liveArchiveMediaStallTimeout)
 	require.NoError(t, err)
 	require.True(t, stalled)
 }

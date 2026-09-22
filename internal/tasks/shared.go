@@ -231,6 +231,15 @@ func setQueueStatusAndEnqueueWith(ctx context.Context, store *database.Database,
 	})
 }
 
+// tmpHLSPlaylistPath is the temporary playlist of an HLS archive. Live captures keep it in
+// TmpVideoDownloadPath because their ExtID is rewritten once the platform VOD is known.
+func tmpHLSPlaylistPath(video *ent.Vod) string {
+	if video.Type == utils.Live {
+		return video.TmpVideoDownloadPath
+	}
+	return fmt.Sprintf("%s/%s-video.m3u8", video.TmpVideoHlsPath, video.ExtID)
+}
+
 // replaceThumbnailPlaceholders replaces the placeholders in the provided url with the provided width and height.
 func replaceThumbnailPlaceholders(url, width, height string, isLive bool) string {
 	if isLive {

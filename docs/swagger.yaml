@@ -276,6 +276,16 @@ definitions:
             items:
               type: string
             type: array
+          reconnect_grace_minutes:
+            description: Resume a dropped live stream into the same video if it returns
+              within this many minutes (0 = disabled); captures live streams as HLS.
+            minimum: 0
+            type: integer
+          split_duration_minutes:
+            description: Split live archives into .ts parts of at most this many minutes
+              (0 = no split); captures live streams as HLS.
+            minimum: 0
+            type: integer
           watch_while_archiving:
             description: Allow watching live streams while archiving them by downloading
               a temporary HLS stream.
@@ -847,6 +857,11 @@ definitions:
       live_archive:
         description: LiveArchive holds the value of the "live_archive" field.
         type: boolean
+      live_capture_runs:
+        description: LiveCaptureRuns holds the value of the "live_capture_runs" field.
+        items:
+          $ref: '#/definitions/utils.LiveCaptureRun'
+        type: array
       on_hold:
         description: OnHold holds the value of the "on_hold" field.
         type: boolean
@@ -2126,6 +2141,15 @@ definitions:
   utils.ErrorResponse:
     properties:
       message:
+        type: string
+    type: object
+  utils.LiveCaptureRun:
+    properties:
+      video_offset:
+        type: number
+      wall_end:
+        type: string
+      wall_start:
         type: string
     type: object
   utils.PlaybackStatus:

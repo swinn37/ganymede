@@ -348,6 +348,7 @@ var (
 		{Name: "task_chat_render", Type: field.TypeEnum, Nullable: true, Enums: []string{"success", "running", "pending", "failed"}, Default: "pending"},
 		{Name: "task_chat_move", Type: field.TypeEnum, Nullable: true, Enums: []string{"success", "running", "pending", "failed"}, Default: "pending"},
 		{Name: "chat_start", Type: field.TypeTime, Nullable: true},
+		{Name: "live_capture_runs", Type: field.TypeJSON, Nullable: true},
 		{Name: "archive_chat", Type: field.TypeBool, Nullable: true, Default: true},
 		{Name: "render_chat", Type: field.TypeBool, Nullable: true, Default: true},
 		{Name: "workflow_id", Type: field.TypeString, Nullable: true},
@@ -364,7 +365,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "queues_vods_queue",
-				Columns:    []*schema.Column{QueuesColumns[23]},
+				Columns:    []*schema.Column{QueuesColumns[24]},
 				RefColumns: []*schema.Column{VodsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},

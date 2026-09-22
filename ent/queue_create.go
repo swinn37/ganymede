@@ -250,6 +250,12 @@ func (_c *QueueCreate) SetNillableChatStart(v *time.Time) *QueueCreate {
 	return _c
 }
 
+// SetLiveCaptureRuns sets the "live_capture_runs" field.
+func (_c *QueueCreate) SetLiveCaptureRuns(v []utils.LiveCaptureRun) *QueueCreate {
+	_c.mutation.SetLiveCaptureRuns(v)
+	return _c
+}
+
 // SetArchiveChat sets the "archive_chat" field.
 func (_c *QueueCreate) SetArchiveChat(v bool) *QueueCreate {
 	_c.mutation.SetArchiveChat(v)
@@ -652,6 +658,10 @@ func (_c *QueueCreate) createSpec() (*Queue, *sqlgraph.CreateSpec) {
 		_spec.SetField(queue.FieldChatStart, field.TypeTime, value)
 		_node.ChatStart = value
 	}
+	if value, ok := _c.mutation.LiveCaptureRuns(); ok {
+		_spec.SetField(queue.FieldLiveCaptureRuns, field.TypeJSON, value)
+		_node.LiveCaptureRuns = value
+	}
 	if value, ok := _c.mutation.ArchiveChat(); ok {
 		_spec.SetField(queue.FieldArchiveChat, field.TypeBool, value)
 		_node.ArchiveChat = value
@@ -1000,6 +1010,24 @@ func (u *QueueUpsert) UpdateChatStart() *QueueUpsert {
 // ClearChatStart clears the value of the "chat_start" field.
 func (u *QueueUpsert) ClearChatStart() *QueueUpsert {
 	u.SetNull(queue.FieldChatStart)
+	return u
+}
+
+// SetLiveCaptureRuns sets the "live_capture_runs" field.
+func (u *QueueUpsert) SetLiveCaptureRuns(v []utils.LiveCaptureRun) *QueueUpsert {
+	u.Set(queue.FieldLiveCaptureRuns, v)
+	return u
+}
+
+// UpdateLiveCaptureRuns sets the "live_capture_runs" field to the value that was provided on create.
+func (u *QueueUpsert) UpdateLiveCaptureRuns() *QueueUpsert {
+	u.SetExcluded(queue.FieldLiveCaptureRuns)
+	return u
+}
+
+// ClearLiveCaptureRuns clears the value of the "live_capture_runs" field.
+func (u *QueueUpsert) ClearLiveCaptureRuns() *QueueUpsert {
+	u.SetNull(queue.FieldLiveCaptureRuns)
 	return u
 }
 
@@ -1436,6 +1464,27 @@ func (u *QueueUpsertOne) UpdateChatStart() *QueueUpsertOne {
 func (u *QueueUpsertOne) ClearChatStart() *QueueUpsertOne {
 	return u.Update(func(s *QueueUpsert) {
 		s.ClearChatStart()
+	})
+}
+
+// SetLiveCaptureRuns sets the "live_capture_runs" field.
+func (u *QueueUpsertOne) SetLiveCaptureRuns(v []utils.LiveCaptureRun) *QueueUpsertOne {
+	return u.Update(func(s *QueueUpsert) {
+		s.SetLiveCaptureRuns(v)
+	})
+}
+
+// UpdateLiveCaptureRuns sets the "live_capture_runs" field to the value that was provided on create.
+func (u *QueueUpsertOne) UpdateLiveCaptureRuns() *QueueUpsertOne {
+	return u.Update(func(s *QueueUpsert) {
+		s.UpdateLiveCaptureRuns()
+	})
+}
+
+// ClearLiveCaptureRuns clears the value of the "live_capture_runs" field.
+func (u *QueueUpsertOne) ClearLiveCaptureRuns() *QueueUpsertOne {
+	return u.Update(func(s *QueueUpsert) {
+		s.ClearLiveCaptureRuns()
 	})
 }
 
@@ -2053,6 +2102,27 @@ func (u *QueueUpsertBulk) UpdateChatStart() *QueueUpsertBulk {
 func (u *QueueUpsertBulk) ClearChatStart() *QueueUpsertBulk {
 	return u.Update(func(s *QueueUpsert) {
 		s.ClearChatStart()
+	})
+}
+
+// SetLiveCaptureRuns sets the "live_capture_runs" field.
+func (u *QueueUpsertBulk) SetLiveCaptureRuns(v []utils.LiveCaptureRun) *QueueUpsertBulk {
+	return u.Update(func(s *QueueUpsert) {
+		s.SetLiveCaptureRuns(v)
+	})
+}
+
+// UpdateLiveCaptureRuns sets the "live_capture_runs" field to the value that was provided on create.
+func (u *QueueUpsertBulk) UpdateLiveCaptureRuns() *QueueUpsertBulk {
+	return u.Update(func(s *QueueUpsert) {
+		s.UpdateLiveCaptureRuns()
+	})
+}
+
+// ClearLiveCaptureRuns clears the value of the "live_capture_runs" field.
+func (u *QueueUpsertBulk) ClearLiveCaptureRuns() *QueueUpsertBulk {
+	return u.Update(func(s *QueueUpsert) {
+		s.ClearLiveCaptureRuns()
 	})
 }
 

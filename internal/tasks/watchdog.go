@@ -15,6 +15,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/zibbp/ganymede/ent"
 	entQueue "github.com/zibbp/ganymede/ent/queue"
+	"github.com/zibbp/ganymede/internal/config"
 	"github.com/zibbp/ganymede/internal/database"
 	"github.com/zibbp/ganymede/internal/utils"
 )
@@ -330,7 +331,12 @@ func liveArchiveVideoInputIsStalled(ctx context.Context, store *database.Databas
 	}
 
 	path := recoverableLiveVideoInputPath(&dbItems.Video)
-	return fileIsStalled(path, attemptedAt, now)
+	stallTimeout := liveArchiveMediaStallTimeout
+	if dbItems.Video.VideoHlsPath != "" {
+		// A capture waiting for a dropped stream to come back leaves its playlist untouched.
+		stallTimeout += time.Duration(config.Get().Livestream.ReconnectGraceMinutes) * time.Minute
+	}
+	return fileIsStalled(path, attemptedAt, now, stallTimeout)
 }
 
 func fileIsQuiet(path string, now time.Time) (bool, error) {
@@ -344,18 +350,18 @@ func fileIsQuiet(path string, now time.Time) (bool, error) {
 	return now.Sub(info.ModTime()) >= liveArchiveMediaQuietPeriod, nil
 }
 
-func fileIsStalled(path string, attemptedAt *time.Time, now time.Time) (bool, error) {
+func fileIsStalled(path string, attemptedAt *time.Time, now time.Time, stallTimeout time.Duration) (bool, error) {
 	info, err := os.Stat(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			// A live capture can legitimately take a little time to create its
 			// first output. Once the attempt itself has exceeded the stall window,
 			// however, no output is evidence that the input is unavailable.
-			return attemptedAt != nil && now.Sub(*attemptedAt) >= liveArchiveMediaStallTimeout, nil
+			return attemptedAt != nil && now.Sub(*attemptedAt) >= stallTimeout, nil
 		}
 		return false, fmt.Errorf("stat live archive stall input %q: %w", path, err)
 	}
-	return now.Sub(info.ModTime()) >= liveArchiveMediaStallTimeout, nil
+	return now.Sub(info.ModTime()) >= stallTimeout, nil
 }
 
 func recoverExhaustedArchiveJob(ctx context.Context, store *database.Database, riverClient *river.Client[pgx.Tx], job *rivertype.JobRow, queueID uuid.UUID) error {
@@ -643,7 +649,7 @@ func validateRecoverableLiveVideoInput(video *ent.Vod) error {
 
 func recoverableLiveVideoInputPath(video *ent.Vod) string {
 	if video.VideoHlsPath != "" {
-		return fmt.Sprintf("%s/%s-video.m3u8", video.TmpVideoHlsPath, video.ExtID)
+		return tmpHLSPlaylistPath(video)
 	}
 	if video.TmpVideoConvertPath != "" && utils.FileExists(video.TmpVideoConvertPath) {
 		return video.TmpVideoConvertPath

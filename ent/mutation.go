@@ -11359,6 +11359,8 @@ type QueueMutation struct {
 	task_chat_render            *utils.TaskStatus
 	task_chat_move              *utils.TaskStatus
 	chat_start                  *time.Time
+	live_capture_runs           *[]utils.LiveCaptureRun
+	appendlive_capture_runs     []utils.LiveCaptureRun
 	archive_chat                *bool
 	render_chat                 *bool
 	workflow_id                 *string
@@ -12196,6 +12198,71 @@ func (m *QueueMutation) ResetChatStart() {
 	delete(m.clearedFields, queue.FieldChatStart)
 }
 
+// SetLiveCaptureRuns sets the "live_capture_runs" field.
+func (m *QueueMutation) SetLiveCaptureRuns(ucr []utils.LiveCaptureRun) {
+	m.live_capture_runs = &ucr
+	m.appendlive_capture_runs = nil
+}
+
+// LiveCaptureRuns returns the value of the "live_capture_runs" field in the mutation.
+func (m *QueueMutation) LiveCaptureRuns() (r []utils.LiveCaptureRun, exists bool) {
+	v := m.live_capture_runs
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLiveCaptureRuns returns the old "live_capture_runs" field's value of the Queue entity.
+// If the Queue object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *QueueMutation) OldLiveCaptureRuns(ctx context.Context) (v []utils.LiveCaptureRun, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLiveCaptureRuns is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLiveCaptureRuns requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLiveCaptureRuns: %w", err)
+	}
+	return oldValue.LiveCaptureRuns, nil
+}
+
+// AppendLiveCaptureRuns adds ucr to the "live_capture_runs" field.
+func (m *QueueMutation) AppendLiveCaptureRuns(ucr []utils.LiveCaptureRun) {
+	m.appendlive_capture_runs = append(m.appendlive_capture_runs, ucr...)
+}
+
+// AppendedLiveCaptureRuns returns the list of values that were appended to the "live_capture_runs" field in this mutation.
+func (m *QueueMutation) AppendedLiveCaptureRuns() ([]utils.LiveCaptureRun, bool) {
+	if len(m.appendlive_capture_runs) == 0 {
+		return nil, false
+	}
+	return m.appendlive_capture_runs, true
+}
+
+// ClearLiveCaptureRuns clears the value of the "live_capture_runs" field.
+func (m *QueueMutation) ClearLiveCaptureRuns() {
+	m.live_capture_runs = nil
+	m.appendlive_capture_runs = nil
+	m.clearedFields[queue.FieldLiveCaptureRuns] = struct{}{}
+}
+
+// LiveCaptureRunsCleared returns if the "live_capture_runs" field was cleared in this mutation.
+func (m *QueueMutation) LiveCaptureRunsCleared() bool {
+	_, ok := m.clearedFields[queue.FieldLiveCaptureRuns]
+	return ok
+}
+
+// ResetLiveCaptureRuns resets all changes to the "live_capture_runs" field.
+func (m *QueueMutation) ResetLiveCaptureRuns() {
+	m.live_capture_runs = nil
+	m.appendlive_capture_runs = nil
+	delete(m.clearedFields, queue.FieldLiveCaptureRuns)
+}
+
 // SetArchiveChat sets the "archive_chat" field.
 func (m *QueueMutation) SetArchiveChat(b bool) {
 	m.archive_chat = &b
@@ -12537,7 +12604,7 @@ func (m *QueueMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *QueueMutation) Fields() []string {
-	fields := make([]string, 0, 22)
+	fields := make([]string, 0, 23)
 	if m.live_archive != nil {
 		fields = append(fields, queue.FieldLiveArchive)
 	}
@@ -12585,6 +12652,9 @@ func (m *QueueMutation) Fields() []string {
 	}
 	if m.chat_start != nil {
 		fields = append(fields, queue.FieldChatStart)
+	}
+	if m.live_capture_runs != nil {
+		fields = append(fields, queue.FieldLiveCaptureRuns)
 	}
 	if m.archive_chat != nil {
 		fields = append(fields, queue.FieldArchiveChat)
@@ -12644,6 +12714,8 @@ func (m *QueueMutation) Field(name string) (ent.Value, bool) {
 		return m.TaskChatMove()
 	case queue.FieldChatStart:
 		return m.ChatStart()
+	case queue.FieldLiveCaptureRuns:
+		return m.LiveCaptureRuns()
 	case queue.FieldArchiveChat:
 		return m.ArchiveChat()
 	case queue.FieldRenderChat:
@@ -12697,6 +12769,8 @@ func (m *QueueMutation) OldField(ctx context.Context, name string) (ent.Value, e
 		return m.OldTaskChatMove(ctx)
 	case queue.FieldChatStart:
 		return m.OldChatStart(ctx)
+	case queue.FieldLiveCaptureRuns:
+		return m.OldLiveCaptureRuns(ctx)
 	case queue.FieldArchiveChat:
 		return m.OldArchiveChat(ctx)
 	case queue.FieldRenderChat:
@@ -12830,6 +12904,13 @@ func (m *QueueMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetChatStart(v)
 		return nil
+	case queue.FieldLiveCaptureRuns:
+		v, ok := value.([]utils.LiveCaptureRun)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLiveCaptureRuns(v)
+		return nil
 	case queue.FieldArchiveChat:
 		v, ok := value.(bool)
 		if !ok {
@@ -12935,6 +13016,9 @@ func (m *QueueMutation) ClearedFields() []string {
 	if m.FieldCleared(queue.FieldChatStart) {
 		fields = append(fields, queue.FieldChatStart)
 	}
+	if m.FieldCleared(queue.FieldLiveCaptureRuns) {
+		fields = append(fields, queue.FieldLiveCaptureRuns)
+	}
 	if m.FieldCleared(queue.FieldArchiveChat) {
 		fields = append(fields, queue.FieldArchiveChat)
 	}
@@ -12993,6 +13077,9 @@ func (m *QueueMutation) ClearField(name string) error {
 		return nil
 	case queue.FieldChatStart:
 		m.ClearChatStart()
+		return nil
+	case queue.FieldLiveCaptureRuns:
+		m.ClearLiveCaptureRuns()
 		return nil
 	case queue.FieldArchiveChat:
 		m.ClearArchiveChat()
@@ -13061,6 +13148,9 @@ func (m *QueueMutation) ResetField(name string) error {
 		return nil
 	case queue.FieldChatStart:
 		m.ResetChatStart()
+		return nil
+	case queue.FieldLiveCaptureRuns:
+		m.ResetLiveCaptureRuns()
 		return nil
 	case queue.FieldArchiveChat:
 		m.ResetArchiveChat()

@@ -479,7 +479,8 @@ func (s *Service) StorageMigration() error {
 			ext := path.Ext(video.VideoPath)
 			if ext == ".m3u8" {
 				newHlsVideoRootPath := fmt.Sprintf("%s/%s-video_hls", newRootFolderPath, fileName)
-				update = update.SetVideoPath(fmt.Sprintf("%s/%s-video.m3u8", newHlsVideoRootPath, video.ExtID))
+				// Keep the playlist name: a live archive's ExtID changes after the playlist is written.
+				update = update.SetVideoPath(fmt.Sprintf("%s/%s", newHlsVideoRootPath, path.Base(video.VideoPath)))
 				update = update.SetVideoHlsPath(newHlsVideoRootPath)
 			} else {
 				update = update.SetVideoPath(fmt.Sprintf("%s/%s-video%s", newRootFolderPath, fileName, ext))
