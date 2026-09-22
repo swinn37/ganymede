@@ -938,6 +938,8 @@
     "showChatIconTooltip": "Afficher le chat",
     "absoluteTimeIconTooltip": "Afficher l’heure de diffusion",
     "playbackSpeedLabel": "Vitesse de lecture",
+    "liveButtonLabel": "LIVE",
+    "liveButtonTooltip": "Revenir au live",
     "sourceViewsTooltip": "vues (source)",
     "localViewsTooltip": "vues locales",
     "streamedOnTooltip": "Diffusée le",

@@ -53,6 +53,7 @@ Limitations: parts are MPEG-TS, and AV1 renditions are skipped because browsers 
 
 ### Watching while archiving
 
+- A recording in progress plays like a regular video: from the start, with a seekable timeline that grows as the recording continues, and speed control. A **LIVE** button jumps back to the most recent part at 1x speed.
 - Playback no longer breaks between the end of a live capture and the end of chat processing.
 - The player only looks for a temporary HLS stream when the capture writes one, and no longer crashes when a processing video has none.
 - The temporary playlist is found by stream ID, which does not change when Twitch assigns the VOD ID.

@@ -938,6 +938,8 @@
     "showChatIconTooltip": "Show Chat",
     "absoluteTimeIconTooltip": "Toggle Absolute Time",
     "playbackSpeedLabel": "Playback Speed",
+    "liveButtonLabel": "LIVE",
+    "liveButtonTooltip": "Jump to live",
     "sourceViewsTooltip": "source views",
     "localViewsTooltip": "local views",
     "streamedOnTooltip": "Streamed on",

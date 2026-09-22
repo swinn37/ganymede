@@ -1,0 +1,21 @@
+.liveButton {
+  width: auto;
+  padding: 0 8px;
+  gap: 6px;
+  color: #f5f5f5;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.liveDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #8c8c8c;
+}
+
+.liveButton[data-live-edge] .liveDot {
+  background-color: #eb0400;
+}

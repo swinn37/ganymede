@@ -1,6 +1,6 @@
 import '@vidstack/react/player/styles/default/theme.css';
 import '@vidstack/react/player/styles/default/layouts/video.css';
-import { MediaPlayer, MediaPlayerInstance, MediaProvider, MediaSrc, Poster, Track, VideoMimeType, useMediaState } from '@vidstack/react';
+import { MediaPlayer, MediaPlayerInstance, MediaProvider, MediaProviderAdapter, MediaSrc, Poster, Track, VideoMimeType, isHLSProvider, useMediaState } from '@vidstack/react';
 import { defaultLayoutIcons, DefaultVideoLayout } from '@vidstack/react/player/layouts/default';
 import { Video, VideoType } from '@/app/hooks/useVideos';
 import classes from "./Player.module.css"
@@ -18,6 +18,7 @@ import useSettingsStore from '@/app/store/useSettingsStore';
 import VideoPlayerHideChatIcon from './PlayerHideChatIcon';
 import VideoPlayerAbsoluteTimeIcon from './PlayerAbsoluteTimeIcon';
 import VideoPlayerSpeedMenu from './PlayerSpeedMenu';
+import VideoPlayerLiveButton from './PlayerLiveButton';
 
 interface Params {
   video: Video;
@@ -37,6 +38,19 @@ const AbsoluteTimeDisplay = ({ streamedAt }: { streamedAt: string | Date }) => {
       <span className={classes.absoluteTimeText}>{absoluteTime.format('YYYY-MM-DD HH:mm:ss')}</span>
     </div>
   );
+};
+
+// Lets a recording in progress (an open EVENT playlist) play like a regular video.
+const setupHLSProvider = (provider: MediaProviderAdapter | null) => {
+  if (!isHLSProvider(provider)) return;
+  // hls.js starts open playlists at their live edge; archives start at the beginning.
+  provider.config = { startPosition: 0 };
+  // Browsers barely fire "progress" with MSE, so Vidstack keeps the seekable range seen at load
+  // and clamps the timeline there. Resync it whenever hls.js reloads the growing playlist.
+  provider.onInstance((hls) => {
+    const events = provider.ctor?.Events;
+    if (events) hls.on(events.LEVEL_UPDATED, () => provider.video.dispatchEvent(new Event('progress')));
+  });
 };
 
 const VideoPlayer = ({ video, ref }: Params) => {
@@ -200,6 +214,8 @@ const VideoPlayer = ({ video, ref }: Params) => {
   const thumbnails = !video.processing
     ? `${(env('NEXT_PUBLIC_API_URL') ?? '')}/api/v1/vod/${video.id}/thumbnails/vtt`
     : undefined
+  // A live stream still being recorded plays from its growing temporary HLS playlist
+  const isRecording = video.type == VideoType.Live && video.processing && !!video.tmp_video_hls_path
   return (
     <MediaPlayer
       ref={player}
@@ -209,6 +225,9 @@ const VideoPlayer = ({ video, ref }: Params) => {
           : classes.mediaPlayer
       }
       src={videoSource}
+      // Archives are never live: keep the timeline and speed controls while recording
+      streamType="on-demand"
+      onProviderChange={setupHLSProvider}
       aspect-ratio={16 / 9}
       crossOrigin={true}
       playsInline={true}
@@ -230,6 +249,7 @@ const VideoPlayer = ({ video, ref }: Params) => {
       </MediaProvider>
       <DefaultVideoLayout icons={defaultLayoutIcons} noScrubGesture={false}
         slots={{
+          afterEndTime: isRecording ? <VideoPlayerLiveButton /> : undefined,
           beforeSettingsMenu: <VideoPlayerSpeedMenu />,
           beforeFullscreenButton: <VideoPlayerTheaterModeIcon />,
           afterFullscreenButton: (
