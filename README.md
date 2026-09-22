@@ -47,6 +47,10 @@ Limitations: parts are MPEG-TS, and AV1 renditions are skipped because browsers 
 
 - New **Channel** option in *Sort by*: one horizontally scrolling row per channel with its 12 latest videos (the type filter and order apply) and a link to the channel page. Rows load as they scroll into view.
 
+### French translation
+
+- The interface is fully translated into French: pick **Français** in the language menu, or set `DEFAULT_LOCALE=fr` to use it for everyone.
+
 ### Watching while archiving
 
 - Playback no longer breaks between the end of a live capture and the end of chat processing.
