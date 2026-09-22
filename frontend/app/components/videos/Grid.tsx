@@ -1,8 +1,8 @@
 import { Box, Button, Center, Checkbox, Group, Menu, Modal, Pagination, SimpleGrid, MultiSelect, Text, Select, Flex } from "@mantine/core";
 import { IconHourglassEmpty, IconHourglassHigh, IconLock, IconLockOpen, IconMovie, IconPhoto, IconPlaylistAdd, IconTrash } from "@tabler/icons-react";
-import { useState, useMemo } from "react";
+import { useState, useMemo, ReactNode } from "react";
 import VideoCard from "./Card";
-import { useGenerateSpriteThumbnails, useGenerateStaticThumbnail, useLockVideo, Video, VideoOrder, VideoSortBy, VideoType } from "@/app/hooks/useVideos";
+import { apiVideoSortOptions, useGenerateSpriteThumbnails, useGenerateStaticThumbnail, useLockVideo, Video, VideoOrder, VideoSortBy, VideoType } from "@/app/hooks/useVideos";
 import GanymedeLoadingText from "../utils/GanymedeLoadingText";
 import { useTranslations } from "next-intl";
 import { useAxiosPrivate } from "@/app/hooks/useAxios";
@@ -31,12 +31,15 @@ export type VideoGridProps<T extends Video> = {
   onVideoTypeChange: (types: VideoType[]) => void;
   sortBy: VideoSortBy;
   onSortByChange: (sort: VideoSortBy) => void;
+  sortOptions?: readonly VideoSortBy[];
   order: VideoOrder;
   onOrderChange: (order: VideoOrder) => void;
   showChannel?: boolean;
   showMenu?: boolean;
   showProgress?: boolean;
   enableSelection?: boolean;
+  // Replaces the selection bar, grid and pagination while keeping the filter controls
+  children?: ReactNode;
 };
 
 const VideoGrid = <T extends Video>({
@@ -52,12 +55,14 @@ const VideoGrid = <T extends Video>({
   onVideoTypeChange,
   sortBy,
   onSortByChange,
+  sortOptions = apiVideoSortOptions,
   order,
   onOrderChange,
   showChannel = false,
   showMenu = true,
   showProgress = true,
   enableSelection = true,
+  children,
 }: VideoGridProps<T>) => {
   const t = useTranslations("VideoComponents");
   const axiosPrivate = useAxiosPrivate();
@@ -108,7 +113,7 @@ const VideoGrid = <T extends Video>({
     onSortByChange(next);
   };
 
-  const selectorSortBy = Object.values(VideoSortBy).map((sort) => ({
+  const selectorSortBy = sortOptions.map((sort) => ({
     value: sort,
     label: t(`enums.VideoSortBy.${sort}`),
   }));
@@ -360,7 +365,7 @@ const VideoGrid = <T extends Video>({
         </div>
       </Group>
 
-      {selectionEnabled && (
+      {!children && selectionEnabled && (
         <Group justify="space-between" mb="sm">
           <Group gap="sm">
             <Checkbox
@@ -455,7 +460,7 @@ const VideoGrid = <T extends Video>({
         </Group>
       )}
 
-      <SimpleGrid
+      {children ?? (<SimpleGrid
         cols={{ base: 1, sm: 2, md: 3, lg: 4, xl: 5, xxl: 6 }}
         spacing="xs"
         verticalSpacing="xs"
@@ -472,9 +477,9 @@ const VideoGrid = <T extends Video>({
             onSelectionChange={(selected) => handleVideoSelectionChange(video, selected)}
           />
         ))}
-      </SimpleGrid>
+      </SimpleGrid>)}
 
-      <div>
+      {!children && <div>
         <Center>
           <Pagination
             value={currentPage}
@@ -495,7 +500,7 @@ const VideoGrid = <T extends Video>({
             w={90}
           />
         </Center>
-      </div>
+      </div>}
 
       <Modal
         opened={playlistModalOpened}

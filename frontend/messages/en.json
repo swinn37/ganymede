@@ -872,6 +872,8 @@
     "sortByLabel": "Sort by",
     "sortByPlaceholder": "Sort by",
     "videosCount": "{count} videos",
+    "channelRowVideosCount": "{count, plural, one {# video} other {# videos}}",
+    "channelRowSeeAll": "See all",
     "loginRequiredText": "You must be logged in to watch this video",
     "markedAsWatchedNotification": "Video marked as watched",
     "markedAsUnwatchedNotification": "Video marked as unwatched",
@@ -943,7 +945,8 @@
         "date": "Date",
         "views": "Views",
         "local_views": "Local Views",
-        "created": "Created"
+        "created": "Created",
+        "channel": "Channel"
       },
       "VideoOrder": {
         "asc": "Ascending",

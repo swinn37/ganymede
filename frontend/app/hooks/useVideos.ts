@@ -89,7 +89,13 @@ export enum VideoSortBy {
   Views = "views", // source views
   LocalViews = "local_views", // local views
   Created = "created", // when added to Ganymede
+  Channel = "channel", // UI only: groups the Videos page by channel, never sent to the API
 }
+
+// Sort fields accepted by the API
+export const apiVideoSortOptions: readonly VideoSortBy[] = Object.values(VideoSortBy).filter(
+  (sort) => sort !== VideoSortBy.Channel
+);
 
 export enum VideoOrder {
   Asc = "asc",

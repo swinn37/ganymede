@@ -1,6 +1,6 @@
 import { usePathname, useSearchParams } from "next/navigation";
 import { useCallback, useMemo } from "react";
-import { VideoOrder, VideoSortBy, VideoType } from "./useVideos";
+import { apiVideoSortOptions, VideoOrder, VideoSortBy, VideoType } from "./useVideos";
 
 // Query parameter names used to persist the state of a video list in the URL
 const PAGE_PARAM = "page";
@@ -38,8 +38,11 @@ const parseEnumValue = <T extends string>(
  * The URL is updated with window.history.pushState, which Next.js syncs with
  * useSearchParams. Unlike router.push this causes no server round trip, keeps the scroll
  * position and does not reset document.title to the route metadata.
+ *
+ * sortOptions lists the sort fields the page supports (pass a stable reference); other
+ * values in the URL fall back to the default.
  */
-const useVideoListParams = () => {
+const useVideoListParams = (sortOptions: readonly VideoSortBy[] = apiVideoSortOptions) => {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
@@ -50,10 +53,10 @@ const useVideoListParams = () => {
       videoTypes: searchParams
         .getAll(TYPES_PARAM)
         .filter((value): value is VideoType => videoTypeValues.includes(value as VideoType)),
-      sortBy: parseEnumValue(searchParams.get(SORT_PARAM), Object.values(VideoSortBy), DEFAULT_SORT_BY),
+      sortBy: parseEnumValue(searchParams.get(SORT_PARAM), sortOptions, DEFAULT_SORT_BY),
       order: parseEnumValue(searchParams.get(ORDER_PARAM), Object.values(VideoOrder), DEFAULT_ORDER),
     };
-  }, [searchParams]);
+  }, [searchParams, sortOptions]);
 
   const update = useCallback(
     (changes: Partial<VideoListParams>) => {
