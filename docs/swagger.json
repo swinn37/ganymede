@@ -1592,6 +1592,100 @@
                 }
             }
         },
+        "/config/twitch-login": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyCookieAuth": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Request a code to authorize at the returned Twitch URL; polling it then saves the account's Twitch token.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "config"
+                ],
+                "summary": "Start Twitch login",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/platform.TwitchDeviceLogin"
+                        }
+                    },
+                    "502": {
+                        "description": "Bad Gateway",
+                        "schema": {
+                            "$ref": "#/definitions/utils.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/config/twitch-login/poll": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyCookieAuth": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Check whether the Twitch login code was authorized. Once it is, the account's token is saved as the Twitch token.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "config"
+                ],
+                "summary": "Poll Twitch login",
+                "parameters": [
+                    {
+                        "description": "Device code from the start of the login",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/http.PollTwitchLoginRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/http.PollTwitchLoginResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.ErrorResponse"
+                        }
+                    },
+                    "502": {
+                        "description": "Bad Gateway",
+                        "schema": {
+                            "$ref": "#/definitions/utils.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/live": {
             "get": {
                 "security": [
@@ -7468,6 +7562,34 @@
                 }
             }
         },
+        "http.PollTwitchLoginRequest": {
+            "type": "object",
+            "required": [
+                "device_code"
+            ],
+            "properties": {
+                "device_code": {
+                    "type": "string",
+                    "maxLength": 255
+                }
+            }
+        },
+        "http.PollTwitchLoginResponse": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "pending",
+                        "authorized"
+                    ]
+                },
+                "twitch_token": {
+                    "description": "Set once authorized; already saved to the config.",
+                    "type": "string"
+                }
+            }
+        },
         "http.RegisterRequest": {
             "type": "object",
             "required": [
@@ -8153,6 +8275,28 @@
                 },
                 "offset": {
                     "type": "integer"
+                }
+            }
+        },
+        "platform.TwitchDeviceLogin": {
+            "type": "object",
+            "properties": {
+                "device_code": {
+                    "type": "string"
+                },
+                "expires_in": {
+                    "description": "Seconds before the code expires.",
+                    "type": "integer"
+                },
+                "interval": {
+                    "description": "Seconds to wait between polls.",
+                    "type": "integer"
+                },
+                "user_code": {
+                    "type": "string"
+                },
+                "verification_uri": {
+                    "type": "string"
                 }
             }
         },

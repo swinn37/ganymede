@@ -85,4 +85,50 @@ const useEditConfig = () => {
   });
 };
 
-export { useEditConfig, useGetConfig };
+// A code the admin authorizes on Twitch to fill in the Twitch token.
+export interface TwitchLogin {
+  device_code: string;
+  user_code: string;
+  verification_uri: string;
+  expires_in: number;
+  interval: number;
+}
+
+export interface TwitchLoginPoll {
+  status: "pending" | "authorized";
+  twitch_token?: string;
+}
+
+const useStartTwitchLogin = () => {
+  return useMutation<TwitchLogin, Error, AxiosInstance>({
+    mutationFn: async (axiosPrivate) => {
+      const response = await axiosPrivate.post<ApiResponse<TwitchLogin>>(`/api/v1/config/twitch-login`);
+      return response.data.data;
+    },
+  });
+};
+
+interface PollTwitchLoginVariables {
+  axiosPrivate: AxiosInstance;
+  deviceCode: string;
+}
+
+const usePollTwitchLogin = () => {
+  const queryClient = useQueryClient();
+  return useMutation<TwitchLoginPoll, Error, PollTwitchLoginVariables>({
+    mutationFn: async ({ axiosPrivate, deviceCode }) => {
+      const response = await axiosPrivate.post<ApiResponse<TwitchLoginPoll>>(`/api/v1/config/twitch-login/poll`, {
+        device_code: deviceCode,
+      });
+      return response.data.data;
+    },
+    onSuccess: (data) => {
+      // The token is saved server-side; refetch later without resetting the settings form now.
+      if (data.status === "authorized") {
+        queryClient.invalidateQueries({ queryKey: ["admin_config"], refetchType: "none" });
+      }
+    },
+  });
+};
+
+export { useEditConfig, useGetConfig, usePollTwitchLogin, useStartTwitchLogin };

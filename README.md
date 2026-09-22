@@ -39,6 +39,13 @@ When either is set:
 
 Limitations: parts are MPEG-TS, and AV1 renditions are skipped because browsers cannot play them from MPEG-TS. A worker restart during a stream still starts a new video. Chapters, the absolute time overlay and multistream sync do not account for the time a stream was down.
 
+### Connect with Twitch
+
+- **Admin › Settings › Video** has a **Connect with Twitch** button next to the Twitch token. It shows a code to authorize at [twitch.tv/activate](https://www.twitch.tv/activate). Once authorized, the token is saved automatically. Pasting a token by hand still works.
+- The login goes through Twitch's TV app, the only Twitch client that still offers this flow with a token valid for subscriber-only VODs and ad-free live streams. Twitch shows the request under that app's name.
+- Requests that send the token now use the TV app's Client-ID, like yt-dlp, so the token and Client-ID match. Tokens copied from the website work with it too.
+- The token does not expire. It stops working if you remove the Twitch TV app from your Twitch connections or change your password.
+
 ### Player
 
 - A playback speed menu in the control bar shows the current rate (0.25x to 2x). It was previously only under Settings › Playback.

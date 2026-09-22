@@ -151,6 +151,13 @@ type TwitchGQLNodeVideo struct {
 	Typename      string `json:"__typename"`
 }
 
+const (
+	twitchWebClientID = "kimne78kx3ncx6brgo4mv6wki5h1ko"
+	// twitchTVClientID is Twitch's TV app: the only Twitch client still offering device login,
+	// and the one yt-dlp sends account tokens with.
+	twitchTVClientID = "ue6666qo983tsx6so1t0vnawi233wa"
+)
+
 // GQLRequest sends a generic GQL request and returns the response.
 func twitchGQLRequest(body string) ([]byte, error) {
 	return twitchGQLRequestWithAuth(body, true)
@@ -168,17 +175,21 @@ func twitchGQLRequestWithAuth(body string, includeAuth bool) ([]byte, error) {
 			return nil, fmt.Errorf("error creating request: %w", err)
 		}
 
-		req.Header.Set("Client-ID", "kimne78kx3ncx6brgo4mv6wki5h1ko")
 		req.Header.Set("Content-Type", "text/plain;charset=UTF-8")
-		req.Header.Set("Origin", "https://www.twitch.tv")
-		req.Header.Set("Referer", "https://www.twitch.tv/")
-		req.Header.Set("Sec-Fetch-Mode", "cors")
-		req.Header.Set("Sec-Fetch-Site", "same-site")
 		req.Header.Set("User-Agent", utils.ChromeUserAgent)
 
 		twitchToken := config.Get().Parameters.TwitchToken
 		if includeAuth && twitchToken != "" {
+			// Account tokens go with the TV app's Client-ID, as in yt-dlp: Twitch login issues TV
+			// tokens, and tokens copied from the website work with it too.
+			req.Header.Set("Client-ID", twitchTVClientID)
 			req.Header.Set("Authorization", fmt.Sprintf("OAuth %s", twitchToken))
+		} else {
+			req.Header.Set("Client-ID", twitchWebClientID)
+			req.Header.Set("Origin", "https://www.twitch.tv")
+			req.Header.Set("Referer", "https://www.twitch.tv/")
+			req.Header.Set("Sec-Fetch-Mode", "cors")
+			req.Header.Set("Sec-Fetch-Site", "same-site")
 		}
 
 		resp, err := client.Do(req)

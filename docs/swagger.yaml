@@ -1576,6 +1576,25 @@ definitions:
       video_success_template:
         type: string
     type: object
+  http.PollTwitchLoginRequest:
+    properties:
+      device_code:
+        maxLength: 255
+        type: string
+    required:
+    - device_code
+    type: object
+  http.PollTwitchLoginResponse:
+    properties:
+      status:
+        enum:
+        - pending
+        - authorized
+        type: string
+      twitch_token:
+        description: Set once authorized; already saved to the config.
+        type: string
+    type: object
   http.RegisterRequest:
     properties:
       password:
@@ -2058,6 +2077,21 @@ definitions:
         type: integer
       offset:
         type: integer
+    type: object
+  platform.TwitchDeviceLogin:
+    properties:
+      device_code:
+        type: string
+      expires_in:
+        description: Seconds before the code expires.
+        type: integer
+      interval:
+        description: Seconds to wait between polls.
+        type: integer
+      user_code:
+        type: string
+      verification_uri:
+        type: string
     type: object
   platform.VideoInfo:
     properties:
@@ -3289,6 +3323,65 @@ paths:
       - ApiKeyCookieAuth: []
       - ApiKeyAuth: []
       summary: Update config
+      tags:
+      - config
+  /config/twitch-login:
+    post:
+      description: Request a code to authorize at the returned Twitch URL; polling
+        it then saves the account's Twitch token.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/platform.TwitchDeviceLogin'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/utils.ErrorResponse'
+      security:
+      - ApiKeyCookieAuth: []
+      - ApiKeyAuth: []
+      summary: Start Twitch login
+      tags:
+      - config
+  /config/twitch-login/poll:
+    post:
+      consumes:
+      - application/json
+      description: Check whether the Twitch login code was authorized. Once it is,
+        the account's token is saved as the Twitch token.
+      parameters:
+      - description: Device code from the start of the login
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/http.PollTwitchLoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.PollTwitchLoginResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.ErrorResponse'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/utils.ErrorResponse'
+      security:
+      - ApiKeyCookieAuth: []
+      - ApiKeyAuth: []
+      summary: Poll Twitch login
       tags:
       - config
   /live:
