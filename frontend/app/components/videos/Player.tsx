@@ -17,6 +17,7 @@ import VideoPlayerTheaterModeIcon from './PlayerTheaterModeIcon';
 import useSettingsStore from '@/app/store/useSettingsStore';
 import VideoPlayerHideChatIcon from './PlayerHideChatIcon';
 import VideoPlayerAbsoluteTimeIcon from './PlayerAbsoluteTimeIcon';
+import VideoPlayerSpeedMenu from './PlayerSpeedMenu';
 
 interface Params {
   video: Video;
@@ -227,6 +228,7 @@ const VideoPlayer = ({ video, ref }: Params) => {
       </MediaProvider>
       <DefaultVideoLayout icons={defaultLayoutIcons} noScrubGesture={false}
         slots={{
+          beforeSettingsMenu: <VideoPlayerSpeedMenu />,
           beforeFullscreenButton: <VideoPlayerTheaterModeIcon />,
           afterFullscreenButton: (
             <>

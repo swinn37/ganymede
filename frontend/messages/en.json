@@ -931,6 +931,7 @@
     "hideChatIconTooltip": "Hide Chat",
     "showChatIconTooltip": "Show Chat",
     "absoluteTimeIconTooltip": "Toggle Absolute Time",
+    "playbackSpeedLabel": "Playback Speed",
     "sourceViewsTooltip": "source views",
     "localViewsTooltip": "local views",
     "streamedOnTooltip": "Streamed on",
