@@ -204,11 +204,21 @@ func setQueueStatus(ctx context.Context, entClient *ent.Client, queueStatusInput
 // jobs atomically. A crash can therefore leave either the old stage state or
 // the complete handoff, but never a successful stage with no next job.
 func setQueueStatusAndEnqueue(ctx context.Context, store *database.Database, status QueueStatusInput, jobs ...transactionalJob) error {
+	return setQueueStatusAndEnqueueWith(ctx, store, status, nil, jobs...)
+}
+
+// setQueueStatusAndEnqueueWith also commits update, when set, in the same transaction.
+func setQueueStatusAndEnqueueWith(ctx context.Context, store *database.Database, status QueueStatusInput, update func(txClient *ent.Client) error, jobs ...transactionalJob) error {
 	enqueuer, err := EnqueuerFromContext(ctx)
 	if err != nil {
 		return err
 	}
 	return store.WithTx(ctx, func(txClient *ent.Client, tx *sql.Tx) error {
+		if update != nil {
+			if err := update(txClient); err != nil {
+				return err
+			}
+		}
 		if err := setQueueStatus(ctx, txClient, status); err != nil {
 			return err
 		}

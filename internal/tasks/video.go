@@ -8,6 +8,7 @@ import (
 
 	"github.com/riverqueue/river"
 	"github.com/rs/zerolog/log"
+	"github.com/zibbp/ganymede/ent"
 	"github.com/zibbp/ganymede/internal/config"
 	"github.com/zibbp/ganymede/internal/exec"
 	"github.com/zibbp/ganymede/internal/hls"
@@ -414,11 +415,15 @@ func (w MoveVideoWorker) Work(ctx context.Context, job *river.Job[MoveVideoArgs]
 		logger.Debug().Msg("queueing task to generate sprite thumbnails")
 		next = append(next, transactionalJob{Args: GenerateSpriteThumbnailArgs{VideoId: dbItems.Video.ID.String()}})
 	}
-	err = setQueueStatusAndEnqueue(ctx, store, QueueStatusInput{
+	// The temporary HLS is gone, so players must switch to video_path even while chat is still processing.
+	clearTmpHLS := func(txClient *ent.Client) error {
+		return txClient.Vod.UpdateOneID(dbItems.Video.ID).SetTmpVideoHlsPath("").Exec(ctx)
+	}
+	err = setQueueStatusAndEnqueueWith(ctx, store, QueueStatusInput{
 		Status:  utils.Success,
 		QueueId: job.Args.Input.QueueId,
 		Task:    utils.TaskMoveVideo,
-	}, next...)
+	}, clearTmpHLS, next...)
 	if err != nil {
 		return err
 	}

@@ -89,10 +89,12 @@ const VideoPlayer = ({ video, ref }: Params) => {
       videoType = "video/object";
     }
 
-    // Allow for processing videos to be played via HLS from the temp directory if enabled
-    if (video.processing) {
+    // Processing videos play from the temporary HLS while it exists (watch while archiving or HLS live capture)
+    if (video.processing && video.tmp_video_hls_path) {
+      // Live playlists are named after the stream ID; ext_id is rewritten once the platform VOD is known
+      const playlistName = video.type == VideoType.Live ? (video.ext_stream_id || video.ext_id) : video.ext_id
       setVideoSource({
-        src: `${(env('NEXT_PUBLIC_CDN_URL') ?? '')}${escapeURL(video.tmp_video_hls_path)}/${video.ext_id}-video.m3u8`,
+        src: `${(env('NEXT_PUBLIC_CDN_URL') ?? '')}${escapeURL(video.tmp_video_hls_path)}/${playlistName}-video.m3u8`,
         type: "application/x-mpegurl"
       })
     } else {

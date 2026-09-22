@@ -21,6 +21,7 @@ export interface PaginationResponse<T> {
 export interface Video {
   id: string;
   ext_id: string;
+  ext_stream_id?: string;
   clip_ext_vod_id?: string;
   platform: Platform;
   type: VideoType;
@@ -48,7 +49,7 @@ export interface Video {
   file_name: string;
   tmp_video_download_path: string;
   tmp_video_convert_path: string;
-  tmp_video_hls_path: string;
+  tmp_video_hls_path?: string; // cleared once the temporary HLS is removed
   tmp_chat_download_path: string;
   tmp_live_chat_download_path: string;
   tmp_live_chat_convert_path: string;
