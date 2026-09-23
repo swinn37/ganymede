@@ -41,8 +41,8 @@ Limitations: parts are MPEG-TS, and AV1 renditions are skipped because browsers 
 
 ### Connect with Twitch
 
-- **Admin › Settings › Video** has a **Connect with Twitch** button next to the Twitch token. It shows a code to authorize at [twitch.tv/activate](https://www.twitch.tv/activate). Once authorized, the token is saved automatically. Pasting a token by hand still works.
-- The login goes through Twitch's TV app, the only Twitch client that still offers this flow with a token valid for subscriber-only VODs and ad-free live streams. Twitch shows the request under that app's name.
+- **Admin › Settings › Video** has a **Connect with Twitch** button next to the Twitch token. It opens a small Twitch window with the code already filled in. After you click **Authorize**, Ganymede saves the token, closes the Twitch window and shows the linked account. Pasting a token by hand still works.
+- The login goes through Twitch's TV app, the only Twitch client that still offers this flow with a token valid for subscriber-only VODs and ad-free live streams. Twitch shows the request as coming from *Twitch for TV*.
 - Requests that send the token now use the TV app's Client-ID, like yt-dlp, so the token and Client-ID match. Tokens copied from the website work with it too.
 - The token does not expire. It stops working if you remove the Twitch TV app from your Twitch connections or change your password.
 

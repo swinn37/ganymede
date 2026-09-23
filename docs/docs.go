@@ -7587,6 +7587,10 @@ const docTemplate = `{
                         "authorized"
                     ]
                 },
+                "twitch_login": {
+                    "description": "Account the token belongs to, when Twitch reports it.",
+                    "type": "string"
+                },
                 "twitch_token": {
                     "description": "Set once authorized; already saved to the config.",
                     "type": "string"

@@ -66,6 +66,7 @@ type PollTwitchLoginRequest struct {
 type PollTwitchLoginResponse struct {
 	Status      string `json:"status" enums:"pending,authorized"`
 	TwitchToken string `json:"twitch_token,omitempty"` // Set once authorized; already saved to the config.
+	TwitchLogin string `json:"twitch_login,omitempty"` // Account the token belongs to, when Twitch reports it.
 }
 
 // StartTwitchLogin godoc
@@ -127,7 +128,12 @@ func (h *Handler) PollTwitchLogin(c echo.Context) error {
 	if err := config.UpdateConfig(conf); err != nil {
 		return ErrorResponse(c, http.StatusInternalServerError, err.Error())
 	}
-	log.Info().Msg("twitch token saved from twitch login")
+	// The account name only confirms which account was linked; the token is saved either way.
+	login, err := platform.TwitchTokenLogin(c.Request().Context(), token)
+	if err != nil {
+		log.Warn().Err(err).Msg("failed to get the account of the saved twitch token")
+	}
+	log.Info().Str("twitch_login", login).Msg("twitch token saved from twitch login")
 
-	return SuccessResponse(c, PollTwitchLoginResponse{Status: "authorized", TwitchToken: token}, "twitch token saved")
+	return SuccessResponse(c, PollTwitchLoginResponse{Status: "authorized", TwitchToken: token, TwitchLogin: login}, "twitch token saved")
 }

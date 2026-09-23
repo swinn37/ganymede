@@ -125,15 +125,6 @@ const AdminSettingsPage = () => {
     }
   }
 
-  const handleTwitchAuthorized = (token: string) => {
-    form.setFieldValue('parameters.twitch_token', token)
-    closeTwitchLogin()
-    showNotification({
-      message: t('videoSettings.twitchLogin.success'),
-      color: "green"
-    });
-  }
-
   if (isPending) return (
     <GanymedeLoadingText message={t('loading')} />
   )
@@ -468,7 +459,10 @@ const AdminSettingsPage = () => {
       </Container>
 
       <Modal opened={twitchLoginOpened} onClose={closeTwitchLogin} title={t('videoSettings.twitchLogin.title')} centered>
-        <TwitchLoginModalContent onAuthorized={handleTwitchAuthorized} />
+        <TwitchLoginModalContent
+          onAuthorized={(token) => form.setFieldValue('parameters.twitch_token', token)}
+          onClose={closeTwitchLogin}
+        />
       </Modal>
     </div>
   );

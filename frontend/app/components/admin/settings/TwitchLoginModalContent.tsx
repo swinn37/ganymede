@@ -8,28 +8,54 @@ import {
   Loader,
   Stack,
   Text,
+  ThemeIcon,
   Tooltip,
 } from "@mantine/core";
-import { IconAlertTriangle, IconCheck, IconCopy, IconExternalLink } from "@tabler/icons-react";
+import { IconAlertTriangle, IconBrandTwitch, IconCheck, IconCopy } from "@tabler/icons-react";
 import { useTranslations } from "next-intl";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAxiosPrivate } from "@/app/hooks/useAxios";
 import { TwitchLogin, usePollTwitchLogin, useStartTwitchLogin } from "@/app/hooks/useConfig";
 
 type Props = {
   // Called with the token once the admin authorized it on Twitch; the backend has already saved it.
   onAuthorized: (token: string) => void;
+  onClose: () => void;
 };
 
-const TwitchLoginModalContent = ({ onAuthorized }: Props) => {
+const POPUP_WIDTH = 520;
+const POPUP_HEIGHT = 760;
+
+const TwitchLoginModalContent = ({ onAuthorized, onClose }: Props) => {
   const t = useTranslations("AdminSettingsPage.videoSettings.twitchLogin");
   const axiosPrivate = useAxiosPrivate();
   const startMutation = useStartTwitchLogin();
   const pollMutation = usePollTwitchLogin();
   const [login, setLogin] = useState<TwitchLogin>();
   const [failed, setFailed] = useState(false);
+  // Set once authorized: the linked account, or "" when Twitch did not report it.
+  const [account, setAccount] = useState<string>();
+  const popup = useRef<Window | null>(null);
+
+  // The Twitch window is useless once the login ends, whatever the outcome.
+  const closePopup = () => {
+    popup.current?.close();
+    popup.current = null;
+  };
+
+  const openPopup = () => {
+    if (!login) return;
+    const left = window.screenX + Math.max(0, (window.outerWidth - POPUP_WIDTH) / 2);
+    const top = window.screenY + Math.max(0, (window.outerHeight - POPUP_HEIGHT) / 2);
+    popup.current = window.open(
+      login.verification_uri,
+      "ganymede-twitch-login",
+      `popup=yes,width=${POPUP_WIDTH},height=${POPUP_HEIGHT},left=${left},top=${top}`,
+    );
+  };
 
   const start = () => {
+    closePopup();
     setFailed(false);
     setLogin(undefined);
     startMutation.mutate(axiosPrivate, {
@@ -40,6 +66,7 @@ const TwitchLoginModalContent = ({ onAuthorized }: Props) => {
 
   useEffect(() => {
     start();
+    return closePopup;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -50,21 +77,28 @@ const TwitchLoginModalContent = ({ onAuthorized }: Props) => {
     let timer: ReturnType<typeof setTimeout>;
     const deadline = Date.now() + login.expires_in * 1000;
 
+    const fail = () => {
+      closePopup();
+      setFailed(true);
+    };
+
     const poll = async () => {
       if (Date.now() > deadline) {
-        setFailed(true);
+        fail();
         return;
       }
       try {
         const result = await pollMutation.mutateAsync({ axiosPrivate, deviceCode: login.device_code });
         if (!active) return;
         if (result.status === "authorized" && result.twitch_token) {
+          closePopup();
+          setAccount(result.twitch_login ?? "");
           onAuthorized(result.twitch_token);
           return;
         }
         timer = setTimeout(poll, login.interval * 1000);
       } catch {
-        if (active) setFailed(true);
+        if (active) fail();
       }
     };
     timer = setTimeout(poll, login.interval * 1000);
@@ -75,6 +109,26 @@ const TwitchLoginModalContent = ({ onAuthorized }: Props) => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [login]);
+
+  if (account !== undefined) {
+    return (
+      <Stack gap="md" align="center">
+        <ThemeIcon color="teal" size={56} radius="xl">
+          <IconCheck size={32} />
+        </ThemeIcon>
+        <Text fw={700} size="lg">
+          {t("successTitle")}
+        </Text>
+        {account && <Text>{t.rich("successAccount", { account, b: (chunks) => <b>{chunks}</b> })}</Text>}
+        <Text size="sm" c="dimmed" ta="center">
+          {t("successMessage")}
+        </Text>
+        <Button fullWidth onClick={onClose}>
+          {t("close")}
+        </Button>
+      </Stack>
+    );
+  }
 
   if (failed) {
     return (
@@ -97,15 +151,8 @@ const TwitchLoginModalContent = ({ onAuthorized }: Props) => {
 
   return (
     <Stack gap="md">
-      <Text size="sm">{t("step1")}</Text>
-      <Button
-        component="a"
-        href={login.verification_uri}
-        target="_blank"
-        rel="noopener noreferrer"
-        color="violet"
-        leftSection={<IconExternalLink size={18} />}
-      >
+      <Text size="sm">{t("intro")}</Text>
+      <Button color="violet" leftSection={<IconBrandTwitch size={18} />} onClick={openPopup}>
         {t("open")}
       </Button>
 

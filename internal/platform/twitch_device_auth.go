@@ -12,8 +12,12 @@ import (
 	"time"
 )
 
-// TwitchDeviceUrl starts a device login; the device code is then exchanged at TwitchAuthUrl.
-var TwitchDeviceUrl = "https://id.twitch.tv/oauth2/device"
+var (
+	// TwitchDeviceUrl starts a device login; the device code is then exchanged at TwitchAuthUrl.
+	TwitchDeviceUrl = "https://id.twitch.tv/oauth2/device"
+	// TwitchValidateUrl tells which account a token belongs to.
+	TwitchValidateUrl = "https://id.twitch.tv/oauth2/validate"
+)
 
 var (
 	// ErrTwitchDeviceLoginPending means the user has not authorized the device code yet.
@@ -95,13 +99,41 @@ func FinishTwitchDeviceLogin(ctx context.Context, deviceCode string) (string, er
 	return "", fmt.Errorf("%w: %s", ErrTwitchDeviceLoginFailed, message)
 }
 
+// TwitchTokenLogin returns the login of the Twitch account a token belongs to.
+func TwitchTokenLogin(ctx context.Context, token string) (string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, TwitchValidateUrl, nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Authorization", "OAuth "+token)
+
+	body, status, err := twitchDo(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to validate twitch token: %w", err)
+	}
+	if status != http.StatusOK {
+		return "", fmt.Errorf("failed to validate twitch token: %s", twitchOAuthMessage(body, status))
+	}
+
+	var validation struct {
+		Login string `json:"login"`
+	}
+	if err := json.Unmarshal(body, &validation); err != nil {
+		return "", fmt.Errorf("failed to unmarshal twitch token validation: %w", err)
+	}
+	return validation.Login, nil
+}
+
 func twitchPostForm(ctx context.Context, endpoint string, form url.Values) ([]byte, int, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, 0, err
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	return twitchDo(req)
+}
 
+func twitchDo(req *http.Request) ([]byte, int, error) {
 	resp, err := twitchDeviceHTTPClient.Do(req)
 	if err != nil {
 		return nil, 0, err

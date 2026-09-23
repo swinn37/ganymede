@@ -14,11 +14,25 @@ func withTwitchDeviceServer(t *testing.T, handler http.HandlerFunc) {
 	server := httptest.NewServer(handler)
 	t.Cleanup(server.Close)
 
-	previousDeviceURL, previousAuthURL := TwitchDeviceUrl, TwitchAuthUrl
-	TwitchDeviceUrl, TwitchAuthUrl = server.URL+"/device", server.URL+"/token"
+	previousDeviceURL, previousAuthURL, previousValidateURL := TwitchDeviceUrl, TwitchAuthUrl, TwitchValidateUrl
+	TwitchDeviceUrl, TwitchAuthUrl, TwitchValidateUrl = server.URL+"/device", server.URL+"/token", server.URL+"/validate"
 	t.Cleanup(func() {
-		TwitchDeviceUrl, TwitchAuthUrl = previousDeviceURL, previousAuthURL
+		TwitchDeviceUrl, TwitchAuthUrl, TwitchValidateUrl = previousDeviceURL, previousAuthURL, previousValidateURL
 	})
+}
+
+func TestTwitchTokenLogin(t *testing.T) {
+	withTwitchDeviceServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || r.URL.Path != "/validate" || r.Header.Get("Authorization") != "OAuth token" {
+			t.Errorf("unexpected validate request: %s %s %q", r.Method, r.URL.Path, r.Header.Get("Authorization"))
+		}
+		_, _ = w.Write([]byte(`{"client_id":"ue6666qo983tsx6so1t0vnawi233wa","login":"streamer","scopes":[],"user_id":"1","expires_in":0}`))
+	})
+
+	login, err := TwitchTokenLogin(context.Background(), "token")
+	if err != nil || login != "streamer" {
+		t.Errorf("got (%q, %v), want streamer", login, err)
+	}
 }
 
 func TestStartTwitchDeviceLogin(t *testing.T) {

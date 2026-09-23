@@ -300,15 +300,18 @@
       "twitchLogin": {
         "button": "Connect with Twitch",
         "title": "Connect with Twitch",
-        "step1": "Open the Twitch activation page and sign in if needed.",
-        "open": "Open twitch.tv/activate",
-        "step2": "Enter this code if it is not already filled in, then authorize access. Twitch shows the request as coming from its TV app, which is expected.",
+        "intro": "Ganymede will open a Twitch window to link your account. The token is then retrieved and saved automatically.",
+        "open": "Open the Twitch window",
+        "step2": "In that window, check that this code is shown, then click Authorize. The request comes from “Twitch for TV”, which is expected.",
         "copy": "Copy code",
         "copied": "Copied",
-        "waiting": "Waiting for authorization… The token will be saved automatically.",
+        "waiting": "Waiting for your authorization… The Twitch window will close by itself.",
         "failed": "The code expired or access was denied.",
         "retry": "Try again",
-        "success": "Twitch token saved."
+        "successTitle": "Connected to Twitch",
+        "successAccount": "Linked account: <b>{account}</b>",
+        "successMessage": "The token has been saved. Ganymede will use it for ad-free live streams and subscriber-only VODs.",
+        "close": "Close"
       },
       "convertFFmpegArgsLabel": "Video Convert FFmpeg Arguments",
       "convertFFmpegArgsDescription": "Custom FFmpeg arguments to use when converting the video. This is used for both live and VOD archives.",

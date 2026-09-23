@@ -97,6 +97,7 @@ export interface TwitchLogin {
 export interface TwitchLoginPoll {
   status: "pending" | "authorized";
   twitch_token?: string;
+  twitch_login?: string;
 }
 
 const useStartTwitchLogin = () => {

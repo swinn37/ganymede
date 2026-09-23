@@ -300,15 +300,18 @@
       "twitchLogin": {
         "button": "Se connecter avec Twitch",
         "title": "Se connecter avec Twitch",
-        "step1": "Ouvrez la page d’activation de Twitch et connectez-vous si besoin.",
-        "open": "Ouvrir twitch.tv/activate",
-        "step2": "Saisissez ce code s’il n’est pas déjà rempli, puis autorisez l’accès. Twitch présente la demande au nom de son application TV : c’est normal.",
+        "intro": "Ganymede va ouvrir une fenêtre Twitch pour lier votre compte. Le jeton sera ensuite récupéré et enregistré automatiquement.",
+        "open": "Ouvrir la fenêtre Twitch",
+        "step2": "Dans cette fenêtre, vérifiez que ce code s’affiche, puis cliquez sur « Autoriser ». La demande vient de « Twitch for TV » : c’est normal.",
         "copy": "Copier le code",
         "copied": "Copié",
-        "waiting": "En attente de l’autorisation… Le jeton sera enregistré automatiquement.",
+        "waiting": "En attente de votre autorisation… La fenêtre Twitch se fermera toute seule.",
         "failed": "Le code a expiré ou l’accès a été refusé.",
         "retry": "Réessayer",
-        "success": "Jeton Twitch enregistré."
+        "successTitle": "Connexion à Twitch réussie",
+        "successAccount": "Compte lié : <b>{account}</b>",
+        "successMessage": "Le jeton a été enregistré. Ganymede l’utilisera pour les lives sans publicité et les VOD réservées aux abonnés.",
+        "close": "Fermer"
       },
       "convertFFmpegArgsLabel": "Arguments FFmpeg de conversion vidéo",
       "convertFFmpegArgsDescription": "Arguments FFmpeg personnalisés utilisés pour convertir la vidéo, pour les archives live comme pour les VOD.",
