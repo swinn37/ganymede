@@ -1,21 +1,50 @@
+/* Zero-width flex item after the time slider: the indicator hangs above the slider's right end. */
+.anchor {
+  position: relative;
+  align-self: stretch;
+  width: 0;
+}
+
+.liveBadge,
 .liveButton {
-  width: auto;
-  padding: 0 8px;
-  gap: 6px;
-  color: #f5f5f5;
+  position: absolute;
+  /* Just above the track, aligned with its end: the slider is inset by half a thumb. */
+  right: calc(var(--media-slider-thumb-size, 15px) / 2);
+  bottom: calc(100% - 12px);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border: 0;
+  border-radius: 4px;
+  color: #fff;
+  font-family: inherit;
   font-size: 13px;
   font-weight: 700;
-  letter-spacing: 0.04em;
+  line-height: 18px;
+  white-space: nowrap;
+}
+
+/* The compact layout has a row of buttons right above the slider: sit above that row instead. */
+:global(.vds-video-layout[data-sm]) .liveBadge,
+:global(.vds-video-layout[data-sm]) .liveButton {
+  bottom: calc(100% + var(--media-button-size, 36px));
+}
+
+.liveBadge {
+  background-color: #eb0400;
+}
+
+.liveButton {
+  background-color: rgb(0 0 0 / 0.6);
   cursor: pointer;
 }
 
-.liveDot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background-color: #8c8c8c;
+.liveButton:hover {
+  background-color: rgb(60 60 60 / 0.85);
 }
 
-.liveButton[data-live-edge] .liveDot {
-  background-color: #eb0400;
+.liveButton:focus-visible {
+  outline: none;
+  box-shadow: var(--media-focus-ring);
 }

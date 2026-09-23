@@ -8,12 +8,15 @@ const LIVE_EDGE_OFFSET = 10;
 // Closer to the recorded end than this counts as watching live.
 const LIVE_EDGE_TOLERANCE = 30;
 
-// Twitch-like button to jump back to the most recent part of a recording in progress.
+// Twitch-like live indicator above the end of the timeline of a recording in progress:
+// a red LIVE badge at the live edge, a LIVE button jumping back to it otherwise.
 const VideoPlayerLiveButton = () => {
   const t = useTranslations('VideoComponents');
   const remote = useMediaRemote();
   const seekableEnd = useMediaState('seekableEnd');
   const currentTime = useMediaState('currentTime');
+
+  if (!seekableEnd) return null;
   const atLiveEdge = seekableEnd - currentTime <= LIVE_EDGE_TOLERANCE;
 
   const goLive = () => {
@@ -24,18 +27,22 @@ const VideoPlayerLiveButton = () => {
   };
 
   return (
-    <button
-      type="button"
-      className={`vds-button ${classes.liveButton}`}
-      data-live-edge={atLiveEdge || undefined}
-      onClick={goLive}
-      aria-label={t('liveButtonTooltip')}
-      title={t('liveButtonTooltip')}
-    >
-      <span className={classes.liveDot} />
-      {t('liveButtonLabel')}
-      <IconPlayerSkipForwardFilled size={14} />
-    </button>
+    <div className={classes.anchor}>
+      {atLiveEdge ? (
+        <span className={classes.liveBadge}>{t('liveButtonLabel')}</span>
+      ) : (
+        <button
+          type="button"
+          className={classes.liveButton}
+          onClick={goLive}
+          aria-label={t('liveButtonTooltip')}
+          title={t('liveButtonTooltip')}
+        >
+          {t('liveButtonLabel')}
+          <IconPlayerSkipForwardFilled size={12} />
+        </button>
+      )}
+    </div>
   );
 };
 

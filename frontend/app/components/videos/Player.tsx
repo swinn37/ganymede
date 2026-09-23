@@ -249,7 +249,7 @@ const VideoPlayer = ({ video, ref }: Params) => {
       </MediaProvider>
       <DefaultVideoLayout icons={defaultLayoutIcons} noScrubGesture={false}
         slots={{
-          afterEndTime: isRecording ? <VideoPlayerLiveButton /> : undefined,
+          afterTimeSlider: isRecording ? <VideoPlayerLiveButton /> : undefined,
           beforeSettingsMenu: <VideoPlayerSpeedMenu />,
           beforeFullscreenButton: <VideoPlayerTheaterModeIcon />,
           afterFullscreenButton: (
