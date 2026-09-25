@@ -1,10 +1,10 @@
 ARG TWITCHDOWNLOADER_VERSION="1.56.5"
-ARG YT_DLP_VERSION="2026.07.04"
+ARG YT_DLP_VERSION="2026.08.19"
 ARG FFMPEG_VERSION="9.0"
-ARG FFMPEG_RELEASE="autobuild-2026-09-10-15-31"
-ARG FFMPEG_BUILD="n9.0.1-27-g9b0578816c"
-ARG FFMPEG_SHA256_LINUX64="70b162b63517038ff18c8a50f4ea11f919a071f945c5881e87b0b2cd7173f8c7"
-ARG FFMPEG_SHA256_LINUXARM64="2de63f615df3a46ac26921ac0314f501c3536aaf9fd5197ffe03dd17cd01a404"
+ARG FFMPEG_RELEASE="autobuild-2026-09-24-14-14"
+ARG FFMPEG_BUILD="n9.0.2-3-ga5923073bf"
+ARG FFMPEG_SHA256_LINUX64="ec732ce7498079da2468f0a36db52014b91d89f83279bce778f2332a068cbbd6"
+ARG FFMPEG_SHA256_LINUXARM64="bed1fbf7ebaf97b4afda0c40b629327a9d2f8b1d7580f0704f0c7181d4b5cc25"
 
 #
 # API Build
@@ -166,37 +166,24 @@ RUN chmod +x /usr/local/bin/TwitchDownloaderCLI
 # Copy and install yt-dlp
 COPY --from=tools /usr/local/bin/yt-dlp /usr/local/bin/yt-dlp
 
-# Production stage
-FROM debian:bookworm-slim
+# Production stage (Debian 13: fewer unpatched OS vulnerabilities than Debian 12)
+FROM debian:trixie-slim
 
 WORKDIR /opt/app
 
-# Install dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 python3-pip fontconfig tzdata procps supervisor \
+# Install dependencies, upgrading the base image's packages to their latest security fixes.
+# Processes drop privileges with setpriv (util-linux, always installed) rather than gosu.
+ARG DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
+    python3 fontconfig tzdata procps supervisor \
     fonts-noto-core fonts-noto-cjk fonts-noto-extra fonts-inter \
-    curl libicu72 \
+    curl ca-certificates libicu76 \
     && rm -rf /var/lib/apt/lists/* \
     && ln -sf python3 /usr/bin/python
 
-# Install gosu
-RUN curl -LO https://github.com/tianon/gosu/releases/latest/download/gosu-$(dpkg --print-architecture | awk -F- '{ print $NF }') \
-    && chmod 0755 gosu-$(dpkg --print-architecture | awk -F- '{ print $NF }') \
-    && mv gosu-$(dpkg --print-architecture | awk -F- '{ print $NF }') /usr/local/bin/gosu
-
-# Install node for frontend
-ENV NODE_VERSION=22.x \
-    DEBIAN_FRONTEND=noninteractive
-
-# Install required packages, add NodeSource repository, and install Node.js
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    ca-certificates \
-    gnupg \
-    && curl -fsSL https://deb.nodesource.com/setup_${NODE_VERSION} | bash - \
-    && apt-get install -y --no-install-recommends nodejs \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
-RUN node --version && npm --version
+# Node.js for the frontend: only the runtime, without npm and its bundled dependencies
+COPY --from=node:22-trixie-slim /usr/local/bin/node /usr/local/bin/node
+RUN node --version
 
 # Setup user
 RUN useradd -u 911 -d /data abc && usermod -a -G users abc
@@ -222,8 +209,8 @@ COPY --from=build-api /app/ganymede-worker .
 # Setup frontend
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
+RUN groupadd --system --gid 1001 nodejs
+RUN useradd --system --uid 1001 --no-create-home nextjs
 
 COPY --from=build-frontend /app/public ./public
 

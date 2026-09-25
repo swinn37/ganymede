@@ -65,6 +65,12 @@ Limitations: parts are MPEG-TS, and AV1 renditions are skipped because browsers 
 - The player only looks for a temporary HLS stream when the capture writes one, and no longer crashes when a processing video has none.
 - The temporary playlist is found by stream ID, which does not change when Twitch assigns the VOD ID.
 
+### Docker image
+
+- Runs on Debian 13 (trixie) instead of Debian 12, with the security updates published since the base image applied at build time. Trivy 0.74.0 finds no critical vulnerability left (7 before) and no vulnerability with an available fix.
+- `gosu`, an outdated Go build flagged by scanners, is replaced by `setpriv` from util-linux. The frontend ships only the `node` binary, without npm and its dependencies, and the unused `python3-pip` is gone.
+- FFmpeg 9.0.2 (the pinned 9.0.1 build had been removed from BtbN's releases) and yt-dlp 2026.08.19.
+
 ### Upstream bugs fixed along the way
 
 - Live captures saved as HLS mapped every stream twice.
