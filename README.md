@@ -49,6 +49,7 @@ Limitations: parts are MPEG-TS, and AV1 renditions are skipped because browsers 
 ### Player
 
 - A playback speed menu in the control bar shows the current rate (0.25x to 2x). It was previously only under Settings › Playback.
+- The chosen speed is remembered in the browser and applied to the next videos. The LIVE button's switch to 1x does not change it.
 
 ### Videos page
 

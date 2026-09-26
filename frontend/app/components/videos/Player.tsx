@@ -73,6 +73,19 @@ const VideoPlayer = ({ video, ref }: Params) => {
   const videoTheaterMode = useSettingsStore((state) => state.videoTheaterMode);
   const showAbsoluteTime = useSettingsStore((state) => state.showAbsoluteTime);
   const autoplayVideo = useSettingsStore((state) => state.autoplayVideo);
+  const playbackRate = useSettingsStore((state) => state.playbackRate);
+  const setPlaybackRate = useSettingsStore((state) => state.setPlaybackRate);
+  // Set by the LIVE button before it forces 1x, which is not the viewer's chosen speed
+  const keepSavedRate = useRef(false);
+
+  // Remember the viewer's speed for the next videos
+  const handleRateChange = (rate: number) => {
+    if (keepSavedRate.current) {
+      keepSavedRate.current = false;
+      return;
+    }
+    if (player.current?.state.canPlay) setPlaybackRate(rate);
+  };
 
   const axiosPrivate = useAxiosPrivate();
   // get playback data
@@ -234,6 +247,8 @@ const VideoPlayer = ({ video, ref }: Params) => {
       load="eager"
       posterLoad="eager"
       volume={playerVolume}
+      playbackRate={playbackRate}
+      onRateChange={handleRateChange}
       autoPlay={autoplayVideo}
     >
       {showAbsoluteTime && <AbsoluteTimeDisplay streamedAt={video.streamed_at} />}
@@ -249,7 +264,7 @@ const VideoPlayer = ({ video, ref }: Params) => {
       </MediaProvider>
       <DefaultVideoLayout icons={defaultLayoutIcons} noScrubGesture={false}
         slots={{
-          afterTimeSlider: isRecording ? <VideoPlayerLiveButton /> : undefined,
+          afterTimeSlider: isRecording ? <VideoPlayerLiveButton onResetRate={() => { keepSavedRate.current = true }} /> : undefined,
           beforeSettingsMenu: <VideoPlayerSpeedMenu />,
           beforeFullscreenButton: <VideoPlayerTheaterModeIcon />,
           afterFullscreenButton: (

@@ -8,20 +8,29 @@ const LIVE_EDGE_OFFSET = 10;
 // Closer to the recorded end than this counts as watching live.
 const LIVE_EDGE_TOLERANCE = 30;
 
+type Props = {
+  // Called right before the button forces 1x, so the player does not save it as the viewer's speed
+  onResetRate: () => void;
+};
+
 // Twitch-like live indicator above the end of the timeline of a recording in progress:
 // a red LIVE badge at the live edge, a LIVE button jumping back to it otherwise.
-const VideoPlayerLiveButton = () => {
+const VideoPlayerLiveButton = ({ onResetRate }: Props) => {
   const t = useTranslations('VideoComponents');
   const remote = useMediaRemote();
   const seekableEnd = useMediaState('seekableEnd');
   const currentTime = useMediaState('currentTime');
+  const playbackRate = useMediaState('playbackRate');
 
   if (!seekableEnd) return null;
   const atLiveEdge = seekableEnd - currentTime <= LIVE_EDGE_TOLERANCE;
 
   const goLive = () => {
     // Playing faster than real time would keep stalling at the edge
-    remote.changePlaybackRate(1);
+    if (playbackRate !== 1) {
+      onResetRate();
+      remote.changePlaybackRate(1);
+    }
     remote.seek(Math.max(0, seekableEnd - LIVE_EDGE_OFFSET));
     remote.play();
   };
