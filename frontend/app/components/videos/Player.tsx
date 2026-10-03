@@ -19,6 +19,7 @@ import VideoPlayerHideChatIcon from './PlayerHideChatIcon';
 import VideoPlayerAbsoluteTimeIcon from './PlayerAbsoluteTimeIcon';
 import VideoPlayerSpeedMenu, { PLAYBACK_RATES } from './PlayerSpeedMenu';
 import VideoPlayerLiveButton from './PlayerLiveButton';
+import VideoPlayerVolumePercent from './PlayerVolumePercent';
 
 interface Params {
   video: Video;
@@ -265,6 +266,7 @@ const VideoPlayer = ({ video, ref }: Params) => {
       <DefaultVideoLayout icons={defaultLayoutIcons} noScrubGesture={false} playbackRates={PLAYBACK_RATES}
         slots={{
           afterTimeSlider: isRecording ? <VideoPlayerLiveButton onResetRate={() => { keepSavedRate.current = true }} /> : undefined,
+          afterVolumeSlider: <VideoPlayerVolumePercent />,
           beforeSettingsMenu: <VideoPlayerSpeedMenu />,
           beforeFullscreenButton: <VideoPlayerTheaterModeIcon />,
           afterFullscreenButton: (

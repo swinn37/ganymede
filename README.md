@@ -50,6 +50,7 @@ Limitations: parts are MPEG-TS, and AV1 renditions are skipped because browsers 
 
 - A playback speed menu in the control bar shows the current rate (0.25x to 2.5x). It was previously only under Settings › Playback, which now also goes up to 2.5x.
 - The chosen speed is remembered in the browser and applied to the next videos. The LIVE button's switch to 1x does not change it.
+- The volume slider shows the volume as a percentage. The mouse wheel changes the volume in 5% steps over the volume control, and the speed in 0.1x steps (0.25x to 2.5x) over the speed button.
 
 ### Videos page
 
