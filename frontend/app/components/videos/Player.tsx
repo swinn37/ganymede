@@ -201,6 +201,37 @@ const VideoPlayer = ({ video, ref }: Params) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Keep the controls up while the pointer rests on them: Vidstack only counts pointer movement as activity.
+  useEffect(() => {
+    const instance = player.current;
+    const el = instance?.el;
+    if (!instance || !el) return;
+    let overControls = false;
+    const inControls = (node: EventTarget | null) => node instanceof Element && !!node.closest('.vds-controls-group, .vds-menu-items');
+    const onOver = (event: PointerEvent) => {
+      if (overControls || !inControls(event.target)) return;
+      overControls = true;
+      instance.remoteControl.pauseControls();
+    };
+    const onOut = (event: PointerEvent) => {
+      if (!overControls || inControls(event.relatedTarget)) return;
+      overControls = false;
+      instance.remoteControl.resumeControls();
+    };
+    // Closing a menu or releasing a slider resumes idle tracking even with the pointer still on the controls
+    const onResume = () => setTimeout(() => {
+      if (overControls) instance.remoteControl.pauseControls();
+    });
+    el.addEventListener('pointerover', onOver);
+    el.addEventListener('pointerout', onOut);
+    el.addEventListener('media-resume-controls-request', onResume);
+    return () => {
+      el.removeEventListener('pointerover', onOver);
+      el.removeEventListener('pointerout', onOut);
+      el.removeEventListener('media-resume-controls-request', onResume);
+    };
+  }, [player]);
+
   // Fast tick for chat player - set player information in bus
   useEffect(() => {
     const ticketInterval = setInterval(() => {
