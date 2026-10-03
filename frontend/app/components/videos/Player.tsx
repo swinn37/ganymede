@@ -248,6 +248,9 @@ const VideoPlayer = ({ video, ref }: Params) => {
       load="eager"
       posterLoad="eager"
       volume={playerVolume}
+      // Hide the controls sooner than Vidstack's 2s default, and as soon as the pointer leaves the player
+      controlsDelay={1200}
+      hideControlsOnMouseLeave
       playbackRate={playbackRate}
       onRateChange={handleRateChange}
       autoPlay={autoplayVideo}
