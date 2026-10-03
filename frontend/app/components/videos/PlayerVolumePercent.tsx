@@ -12,9 +12,14 @@ const VideoPlayerVolumePercent = () => {
   const remote = useMediaRemote();
   const volume = useMediaState('volume');
   const muted = useMediaState('muted');
-  const [volumeControl, setVolumeControl] = useState<Element | null>(null);
+  const [wheelTargets, setWheelTargets] = useState<Element[]>([]);
 
-  const attach = useCallback((el: HTMLSpanElement | null) => setVolumeControl(el?.closest('.vds-volume') ?? null), []);
+  // The mute button, the slider and this label: the .vds-volume group around them has no box in the large layout
+  const attach = useCallback((el: HTMLSpanElement | null) => {
+    const group = el?.closest('.vds-volume');
+    const targets = [group?.querySelector('.vds-button'), group?.querySelector('.vds-volume-slider'), el];
+    setWheelTargets(targets.filter((target): target is Element => !!target));
+  }, []);
 
   const onStep = useCallback((direction: 1 | -1) => {
     if (!player) return;
@@ -23,7 +28,7 @@ const VideoPlayerVolumePercent = () => {
     if (player.state.muted && direction > 0) remote.unmute();
     remote.changeVolume(stepOnGrid(shown, VOLUME_STEP, direction, 0, 1));
   }, [player, remote]);
-  useWheelStep(volumeControl, onStep);
+  useWheelStep(wheelTargets, onStep);
 
   return (
     <span ref={attach} className={classes.volumePercent} aria-hidden="true">

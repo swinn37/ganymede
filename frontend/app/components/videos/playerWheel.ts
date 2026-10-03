@@ -3,11 +3,11 @@ import { useEffect } from 'react';
 // Wheel events closer together than this are ignored, so a trackpad swipe does not race through the steps.
 const WHEEL_STEP_INTERVAL_MS = 50;
 
-// Calls onStep(1) when the wheel scrolls up over the element and onStep(-1) when it scrolls down,
-// without scrolling the page. onStep must be stable (useCallback).
-export const useWheelStep = (element: Element | null, onStep: (direction: 1 | -1) => void) => {
+// Calls onStep(1) when the wheel scrolls up over one of the elements and onStep(-1) when it scrolls down,
+// without scrolling the page. The elements must have a box of their own: browsers scroll the page without
+// waiting for listeners on display: contents elements. elements and onStep must be stable (state, useCallback).
+export const useWheelStep = (elements: Element[], onStep: (direction: 1 | -1) => void) => {
   useEffect(() => {
-    if (!element) return;
     let lastStep = -Infinity;
     const onWheel = (event: Event) => {
       const { deltaY, timeStamp } = event as WheelEvent;
@@ -17,9 +17,9 @@ export const useWheelStep = (element: Element | null, onStep: (direction: 1 | -1
       lastStep = timeStamp;
       onStep(deltaY < 0 ? 1 : -1);
     };
-    element.addEventListener('wheel', onWheel, { passive: false });
-    return () => element.removeEventListener('wheel', onWheel);
-  }, [element, onStep]);
+    elements.forEach((element) => element.addEventListener('wheel', onWheel, { passive: false }));
+    return () => elements.forEach((element) => element.removeEventListener('wheel', onWheel));
+  }, [elements, onStep]);
 };
 
 // Next value on a grid of `step` in the given direction, snapping values that are off the grid, within [min, max].

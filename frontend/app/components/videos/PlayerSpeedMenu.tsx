@@ -1,7 +1,7 @@
 import { Menu, useMediaPlayer, useMediaRemote, useMediaState, usePlaybackRateOptions } from '@vidstack/react';
 import { IconCheck } from '@tabler/icons-react';
 import { useTranslations } from 'next-intl';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { stepOnGrid, useWheelStep } from './playerWheel';
 import classes from './PlayerSpeedMenu.module.css';
 
@@ -19,13 +19,14 @@ const VideoPlayerSpeedMenu = () => {
   const playbackRate = useMediaState('playbackRate');
   const options = usePlaybackRateOptions({ rates: PLAYBACK_RATES });
   const [button, setButton] = useState<HTMLButtonElement | null>(null);
+  const wheelTargets = useMemo(() => (button ? [button] : []), [button]);
 
   const onWheelStep = useCallback((direction: 1 | -1) => {
     if (!player) return;
     const rate = stepOnGrid(player.state.playbackRate, WHEEL_RATE_STEP, direction, PLAYBACK_RATES[0], PLAYBACK_RATES[PLAYBACK_RATES.length - 1]);
     remote.changePlaybackRate(rate);
   }, [player, remote]);
-  useWheelStep(button, onWheelStep);
+  useWheelStep(wheelTargets, onWheelStep);
 
   return (
     <Menu.Root className="vds-menu">
