@@ -27,6 +27,22 @@
   object-fit: contain;
 }
 
+/* Darker, slightly blurred band behind the bottom controls, which Vidstack only shades lightly,
+   so they stay readable over bright or busy frames. It fades in and out with the controls. */
+.mediaPlayer :global(.vds-controls)::before,
+.mediaPlayerTheaterMode :global(.vds-controls)::before {
+  content: '';
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 110px;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: inherit;
+  background: rgb(0 0 0 / 0.45);
+  backdrop-filter: blur(4px);
+  mask-image: linear-gradient(to top, #000 55%, transparent);
+}
+
 .absoluteTimeOverlay {
   position: absolute;
   top: 0.75rem;
