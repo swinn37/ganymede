@@ -1,8 +1,8 @@
 import { Menu, useMediaPlayer, useMediaRemote, useMediaState, usePlaybackRateOptions } from '@vidstack/react';
 import { IconCheck } from '@tabler/icons-react';
 import { useTranslations } from 'next-intl';
-import { useCallback, useMemo, useState } from 'react';
-import { stepOnGrid, useWheelStep } from './playerWheel';
+import { useMemo, useState } from 'react';
+import { useWheelValue } from './playerWheel';
 import classes from './PlayerSpeedMenu.module.css';
 
 // Speeds offered by this menu and by the Settings > Playback slider (Vidstack stops at 2x by default).
@@ -21,12 +21,14 @@ const VideoPlayerSpeedMenu = () => {
   const [button, setButton] = useState<HTMLButtonElement | null>(null);
   const wheelTargets = useMemo(() => (button ? [button] : []), [button]);
 
-  const onWheelStep = useCallback((direction: 1 | -1) => {
-    if (!player) return;
-    const rate = stepOnGrid(player.state.playbackRate, WHEEL_RATE_STEP, direction, PLAYBACK_RATES[0], PLAYBACK_RATES[PLAYBACK_RATES.length - 1]);
-    remote.changePlaybackRate(rate);
+  const wheelRate = useMemo(() => player && {
+    get: () => player.state.playbackRate,
+    set: (rate: number) => remote.changePlaybackRate(rate),
+    step: WHEEL_RATE_STEP,
+    min: PLAYBACK_RATES[0],
+    max: PLAYBACK_RATES[PLAYBACK_RATES.length - 1],
   }, [player, remote]);
-  useWheelStep(wheelTargets, onWheelStep);
+  useWheelValue(wheelTargets, wheelRate);
 
   return (
     <Menu.Root className="vds-menu">

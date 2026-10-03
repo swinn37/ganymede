@@ -1,6 +1,6 @@
 import { useMediaPlayer, useMediaRemote, useMediaState } from '@vidstack/react';
-import { useCallback, useState } from 'react';
-import { stepOnGrid, useWheelStep } from './playerWheel';
+import { useCallback, useMemo, useState } from 'react';
+import { useWheelValue } from './playerWheel';
 import classes from './PlayerVolumePercent.module.css';
 
 const VOLUME_STEP = 0.05;
@@ -21,14 +21,18 @@ const VideoPlayerVolumePercent = () => {
     setWheelTargets(targets.filter((target): target is Element => !!target));
   }, []);
 
-  const onStep = useCallback((direction: 1 | -1) => {
-    if (!player) return;
+  const wheelVolume = useMemo(() => player && {
     // Step from what the slider shows: 0 while muted
-    const shown = player.state.muted ? 0 : player.state.volume;
-    if (player.state.muted && direction > 0) remote.unmute();
-    remote.changeVolume(stepOnGrid(shown, VOLUME_STEP, direction, 0, 1));
+    get: () => (player.state.muted ? 0 : player.state.volume),
+    set: (next: number) => {
+      if (next > 0 && player.state.muted) remote.unmute();
+      remote.changeVolume(next);
+    },
+    step: VOLUME_STEP,
+    min: 0,
+    max: 1,
   }, [player, remote]);
-  useWheelStep(wheelTargets, onStep);
+  useWheelValue(wheelTargets, wheelVolume);
 
   return (
     <span ref={attach} className={classes.volumePercent} aria-hidden="true">
