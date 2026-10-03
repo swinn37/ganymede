@@ -114,7 +114,7 @@ const VideoPage = ({ params }: { params: Promise<Params> }) => {
       </Box>
 
       {/* Title bar */}
-      {!videoTheaterMode && <VideoTitleBar video={data} />}
+      {!videoTheaterMode && <VideoTitleBar video={data} playerRef={player} />}
 
       {/* Desktop-only sections render after the player/chat block so toggling them doesn't shift player position */}
       {!isMobile && !data.processing && (

@@ -956,6 +956,7 @@
     "playbackSpeedLabel": "Vitesse de lecture",
     "liveButtonLabel": "LIVE",
     "liveButtonTooltip": "Revenir au live",
+    "remainingTimeTooltip": "Temps restant à {rate}x",
     "sourceViewsTooltip": "vues (source)",
     "localViewsTooltip": "vues locales",
     "streamedOnTooltip": "Diffusée le",

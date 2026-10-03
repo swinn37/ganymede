@@ -956,6 +956,7 @@
     "playbackSpeedLabel": "Playback Speed",
     "liveButtonLabel": "LIVE",
     "liveButtonTooltip": "Jump to live",
+    "remainingTimeTooltip": "Time left at {rate}x",
     "sourceViewsTooltip": "source views",
     "localViewsTooltip": "local views",
     "streamedOnTooltip": "Streamed on",

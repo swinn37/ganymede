@@ -1,10 +1,12 @@
 "use client"
 import { useGetVideoByExternalId, Video } from "@/app/hooks/useVideos";
-import { escapeURL, formatBytes } from "@/app/util/util";
+import { durationToTime, escapeURL, formatBytes } from "@/app/util/util";
 import { Avatar, Box, Divider, Tooltip, Text, Group, Badge, Button, rem } from "@mantine/core";
 import { env } from "next-runtime-env";
 import classes from "./TitleBar.module.css";
-import { IconCalendarEvent, IconDatabase, IconLock, IconUser, IconUsers } from "@tabler/icons-react";
+import { IconCalendarEvent, IconDatabase, IconHourglass, IconLock, IconUser, IconUsers } from "@tabler/icons-react";
+import { MediaPlayerInstance } from "@vidstack/react";
+import { RefObject, useEffect, useState } from "react";
 import dayjs from "dayjs";
 import VideoMenu from "./Menu";
 import useAuthStore from "@/app/store/useAuthStore";
@@ -14,9 +16,38 @@ import { useTranslations } from "next-intl";
 
 interface Params {
   video: Video;
+  playerRef: RefObject<MediaPlayerInstance | null>;
 }
 
-const VideoTitleBar = ({ video }: Params) => {
+// Time left to watch at the current playback speed.
+const VideoRemainingTime = ({ playerRef }: { playerRef: RefObject<MediaPlayerInstance | null> }) => {
+  const t = useTranslations("VideoComponents");
+  const [remaining, setRemaining] = useState<{ seconds: number; rate: number }>();
+
+  useEffect(() => {
+    // Re-render only when the shown second or the speed changes, not on every player tick
+    return playerRef.current?.subscribe(({ currentTime, duration, playbackRate }) => {
+      if (!duration) return;
+      const seconds = Math.ceil(Math.max(0, duration - currentTime) / playbackRate);
+      setRemaining((prev) => (prev?.seconds === seconds && prev.rate === playbackRate ? prev : { seconds, rate: playbackRate }));
+    });
+  }, [playerRef]);
+
+  if (!remaining) return null;
+
+  return (
+    <Group mr={15}>
+      <Tooltip label={t('remainingTimeTooltip', { rate: remaining.rate })} openDelay={250}>
+        <div className={classes.titleBarBadge}>
+          <Text mr={3}>{durationToTime(remaining.seconds)}</Text>
+          <IconHourglass size={20} />
+        </div>
+      </Tooltip>
+    </Group>
+  );
+};
+
+const VideoTitleBar = ({ video, playerRef }: Params) => {
   const t = useTranslations("VideoComponents");
   const hasPermission = useAuthStore(state => state.hasPermission);
 
@@ -51,6 +82,8 @@ const VideoTitleBar = ({ video }: Params) => {
                 <Button variant="default" size="xs" component={Link} href={`/videos/${clipFullVideo.id}?t=${video.clip_vod_offset}`}>Go To Full Video</Button>
               </Group>
             )}
+
+            <VideoRemainingTime playerRef={playerRef} />
 
             {video.views && (
               <Group mr={15}>
