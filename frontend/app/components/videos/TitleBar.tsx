@@ -57,6 +57,8 @@ const VideoTitleBar = ({ video, playerRef }: Params) => {
     <div className={classes.titleBarContainer}>
       <div className={classes.titleBar}>
         <Avatar
+          component={Link}
+          href={`/channels/${video.edges.channel.name}`}
           src={`${(env('NEXT_PUBLIC_CDN_URL') ?? '')}${escapeURL(video.edges.channel.image_path)}`}
           radius="xl"
           alt={video.edges.channel.display_name}
