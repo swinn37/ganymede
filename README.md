@@ -53,6 +53,10 @@ Limitations: parts are MPEG-TS, and AV1 renditions are skipped because browsers 
 - The volume slider shows the volume as a percentage. The mouse wheel changes the volume in 5% steps over the volume control, and the speed in 0.1x steps (0.25x to 2.5x) over the speed button.
 - The bar under the player shows the time left to watch at the current speed, updated as you play, seek or change speed.
 
+### Home page
+
+- The *Continue Watching* and *Recently Archived* grids use the full width of the window, with as many columns of cards at least 300 px wide as fit. *Continue Watching* shows one full row, and *Recently Archived* as many full rows as fit in the window. They never show fewer videos than the former fixed grids (4 and 8), and the mobile carousels are unchanged.
+
 ### Videos page
 
 - New **Channel** option in *Sort by*: one horizontally scrolling row per channel with its 12 latest videos (the type filter and order apply) and a link to the channel page. Rows load as they scroll into view.

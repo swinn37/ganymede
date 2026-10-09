@@ -1,4 +1,5 @@
 import {
+  keepPreviousData,
   useMutation,
   UseMutationOptions,
   useQuery,
@@ -195,6 +196,7 @@ const useGetLastPlaybackVideos = (
   return useQuery({
     queryKey: ["playback-videos", count],
     queryFn: () => getLastPlaybackVideos(axiosPrivate, count),
+    placeholderData: keepPreviousData, // keep the grid while a resized window asks for another count
   });
 };
 
