@@ -8,9 +8,10 @@ import { useTranslations } from "next-intl"
 
 type Props = {
   count: number
+  columns: number
 }
 
-const ContinueWatching = ({ count }: Props) => {
+const ContinueWatching = ({ count, columns }: Props) => {
   const axiosPrivate = useAxiosPrivate()
   const theme = useMantineTheme()
   const isMobile = useMediaQuery(`(max-width: ${theme.breakpoints.sm})`);
@@ -43,7 +44,7 @@ const ContinueWatching = ({ count }: Props) => {
           ))}
         </Carousel>
       ) : (
-        <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="xs" verticalSpacing="xs">
+        <SimpleGrid cols={columns} spacing="xs" verticalSpacing="xs">
           {data.data && data.data.map((item) => (
             <VideoCard key={item.vod.id} video={item.vod} showProgress={true} showChannel={true} showMenu={true} />
           ))}
