@@ -13,6 +13,69 @@
 
 ---
 
+## Fork changes
+
+This is a fork of [Zibbp/ganymede](https://github.com/Zibbp/ganymede), based on v5.0.0. It adds the changes below; everything else follows upstream. The image is published as `ghcr.io/swinn37/ganymede:fork-v5`.
+
+### Live archives resumed after a stream drop, in parts
+
+Two settings in **Admin › Settings › Video**, under *Live Stream*, both `0` (upstream behaviour) by default:
+
+- **Live Stream Reconnect Window (minutes)** (`livestream.reconnect_grace_minutes`): when a stream drops and comes back within that many minutes, keeps archiving it into the same video instead of starting a new one. The live chat is lined up with the video, without the time the stream was down.
+- **Live Archive Part Length (minutes)** (`livestream.split_duration_minutes`): saves live archives as HLS in MP4 parts of at most that many minutes, played in Ganymede as a single video. Each part plays on its own (VLC, mpv, Jellyfin), and a resumed stream also starts a new part:
+
+```
+{channel}/{folder}/{file}-video_hls/
+  {streamId}-video.m3u8         # video_path, played as one video
+  {streamId}-video-part001.mp4
+  {streamId}-video-part002.mp4
+```
+
+A resumed capture records each run to its own playlist and init segment, and the capture playlist stitches the runs together, so the recording can still be watched while it continues. A part keeps the timeline of the whole video: a later part starts at its time in the video.
+
+Limitations: without parts or *Save as HLS*, the runs are exported into a single MP4, which assumes the stream comes back with the same encoding settings. The absolute time display and multistream sync do not account for the time a stream was down.
+
+### Connect with Twitch
+
+- **Admin › Settings › Video** has a **Connect with Twitch** button next to the Twitch token. It opens a small Twitch window with the code already filled in. After you click **Authorize**, Ganymede saves the token, closes the Twitch window and shows the linked account. Pasting a token by hand still works.
+- The login goes through Twitch's TV app, the only Twitch client that still offers this flow with a token valid for subscriber-only VODs and ad-free live streams. Twitch shows the request as coming from *Twitch for TV*.
+- Requests that send the token now use the TV app's Client-ID, like yt-dlp, so the token and Client-ID match. Tokens copied from the website work with it too.
+- The token does not expire. It stops working if you remove the Twitch TV app from your Twitch connections or change your password.
+
+### Player
+
+- A speed button next to the settings shows the current speed and offers 0.25x to 2.5x. *Settings › Speed* and the `>` / `<` shortcuts also go up to 2.5x (Video.js stops at 2x).
+- The chosen speed is remembered in the browser and applied to the next videos. The LIVE button's switch to 1x does not change it.
+- The volume popup shows the volume as a percentage. The mouse wheel changes the volume in 5% steps over the volume button, and the speed in 0.1x steps over the speed button, without scrolling the page.
+- The controls hide 1.2 s after the mouse stops moving (Video.js waits 2 s), and stay visible while the mouse rests on them.
+- The bar under the player shows the time left to watch at the current speed, and the channel avatar opens the channel page.
+
+### Watching while archiving
+
+- A recording in progress plays like a regular video: from the start, with a timeline that grows as the recording continues, speed control and shortcuts. As on Twitch, a red **LIVE** badge above the end of the timeline shows you are watching the latest part. When you are behind, it becomes a **LIVE ▶|** button that jumps back to it at 1x speed.
+- Once its video is in place, an archive plays while its chat is still processed, instead of showing that no preview is available.
+
+### Home page
+
+- The *Continue Watching* and *Recently Archived* grids use the full width of the window, with as many columns of cards at least 300 px wide as fit. *Continue Watching* shows one full row, and *Recently Archived* as many full rows as fit in the window. They never show fewer videos than the former fixed grids (4 and 8), and the mobile carousels are unchanged.
+
+### Videos page
+
+- New **Channel** option in *Sort by*: one horizontally scrolling row per channel with its 12 latest videos (the type filter and order apply) and a link to the channel page. Rows load as they scroll into view.
+
+### French translation
+
+- The interface is fully translated into French: pick **Français** in the language menu, or set `DEFAULT_LOCALE=fr` to use it for everyone.
+
+### Docker image
+
+- Runs on Debian 13 (trixie) instead of Debian 12, with the security updates published since the base image applied at build time.
+- `gosu`, an outdated Go build flagged by scanners, is replaced by `setpriv` from util-linux. The frontend ships only the `node` binary, without npm and its dependencies, and the unused `python3-pip` is gone.
+- yt-dlp 2026.08.19, and golang.org/x/net 0.60.0 in the API and worker.
+- Trivy 0.74.0 finds 359 vulnerabilities in this image, none critical and none with an available fix, against 593 in the upstream 5.0.0 image (6 critical, 103 with a fix).
+
+---
+
 ## Screenshot
 
 ![ganymede-readme_landing](https://github.com/user-attachments/assets/b1c024f5-f5ad-4611-84db-42d599364a74)
