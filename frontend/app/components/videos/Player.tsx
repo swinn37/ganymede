@@ -24,6 +24,7 @@ import useSettingsStore from '@/app/store/useSettingsStore';
 import VideoPlayerHideChatIcon from './PlayerHideChatIcon';
 import VideoPlayerAbsoluteTimeIcon from './PlayerAbsoluteTimeIcon';
 import type { GanymedePlayerRef } from './ganymedePlayerRef';
+import VideoPlayerControlsTiming from './PlayerControlsTiming';
 
 interface Params {
   video: VideoType;
@@ -354,6 +355,7 @@ const VideoPlayer = ({ video, ref }: Params) => {
             >
               <HlsJsVideo {...mediaProps} />
               {showAbsoluteTime && <LiveAbsoluteTimeDisplay startedAt={startedAt} />}
+              <VideoPlayerControlsTiming />
             </LiveVideoSkin>
           </I18nProvider>
         </LiveVideoJsPlayer>
@@ -390,6 +392,7 @@ const VideoPlayer = ({ video, ref }: Params) => {
                 </Video>
               )}
               {showAbsoluteTime && <AbsoluteTimeDisplay startedAt={startedAt} />}
+              <VideoPlayerControlsTiming />
             </VideoSkin>
           </I18nProvider>
         </VideoJsPlayer>

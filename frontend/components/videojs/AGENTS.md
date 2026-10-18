@@ -58,6 +58,8 @@ An upstream refresh must retain or deliberately reimplement all of these:
      moves the volume in 5% mouse wheel steps over the mute button and the
      popup, with `frontend/app/components/videos/playerWheel.ts`.
    - `styles/ganymede.css` holds the styles of these additions.
+   - `PlayerControlsTiming.tsx`, rendered as a skin child by `Player.tsx`,
+     hides the controls sooner and keeps them while the pointer rests on them.
 
 Do not restore the entire pre-update directory after refreshing it. Doing so
 would silently discard upstream fixes. Merge the small customizations above
