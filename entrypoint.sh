@@ -34,7 +34,7 @@ fi
 # fonts
 mkdir -p /var/cache/fontconfig
 chown abc:abc /var/cache/fontconfig
-gosu abc fc-cache -f
+setpriv --reuid=abc --regid=abc --init-groups fc-cache -f
 
 # dotnet envs
 export DOTNET_BUNDLE_EXTRACT_BASE_DIR=/tmp

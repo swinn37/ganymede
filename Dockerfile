@@ -1,5 +1,5 @@
 ARG TWITCHDOWNLOADER_VERSION="1.56.5"
-ARG YT_DLP_VERSION="2026.07.04"
+ARG YT_DLP_VERSION="2026.08.19"
 ARG FFMPEG_VERSION="9.0"
 
 #
@@ -161,37 +161,24 @@ RUN chmod +x /usr/local/bin/TwitchDownloaderCLI
 # Copy and install yt-dlp
 COPY --from=tools /usr/local/bin/yt-dlp /usr/local/bin/yt-dlp
 
-# Production stage
-FROM debian:bookworm-slim
+# Production stage (Debian 13: fewer unpatched OS vulnerabilities than Debian 12)
+FROM debian:trixie-slim
 
 WORKDIR /opt/app
 
-# Install dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 python3-pip fontconfig tzdata procps supervisor \
+# Install dependencies, upgrading the base image's packages to their latest security fixes.
+# Processes drop privileges with setpriv (util-linux, always installed) rather than gosu.
+ARG DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
+    python3 fontconfig tzdata procps supervisor \
     fonts-noto-core fonts-noto-cjk fonts-noto-extra fonts-inter \
-    curl libicu72 \
+    curl ca-certificates libicu76 \
     && rm -rf /var/lib/apt/lists/* \
     && ln -sf python3 /usr/bin/python
 
-# Install gosu
-RUN curl -LO https://github.com/tianon/gosu/releases/latest/download/gosu-$(dpkg --print-architecture | awk -F- '{ print $NF }') \
-    && chmod 0755 gosu-$(dpkg --print-architecture | awk -F- '{ print $NF }') \
-    && mv gosu-$(dpkg --print-architecture | awk -F- '{ print $NF }') /usr/local/bin/gosu
-
-# Install node for frontend
-ENV NODE_VERSION=22.x \
-    DEBIAN_FRONTEND=noninteractive
-
-# Install required packages, add NodeSource repository, and install Node.js
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    ca-certificates \
-    gnupg \
-    && curl -fsSL https://deb.nodesource.com/setup_${NODE_VERSION} | bash - \
-    && apt-get install -y --no-install-recommends nodejs \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
-RUN node --version && npm --version
+# Node.js for the frontend: only the runtime, without npm and its bundled dependencies
+COPY --from=node:22-trixie-slim /usr/local/bin/node /usr/local/bin/node
+RUN node --version
 
 # Setup user
 RUN useradd -u 911 -d /data abc && usermod -a -G users abc
@@ -217,8 +204,8 @@ COPY --from=build-api /app/ganymede-worker .
 # Setup frontend
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
+RUN groupadd --system --gid 1001 nodejs
+RUN useradd --system --uid 1001 --no-create-home nextjs
 
 COPY --from=build-frontend /app/public ./public
 
