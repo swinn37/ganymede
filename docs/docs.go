@@ -5547,6 +5547,11 @@ const docTemplate = `{
                             "items": {
                                 "type": "string"
                             }
+                        },
+                        "reconnect_grace_minutes": {
+                            "description": "Resume a dropped live stream into the same video if it returns within this many minutes (0 = disabled).",
+                            "type": "integer",
+                            "minimum": 0
                         }
                     }
                 },
@@ -6365,6 +6370,13 @@ const docTemplate = `{
                 "live_archive": {
                     "description": "LiveArchive holds the value of the \"live_archive\" field.",
                     "type": "boolean"
+                },
+                "live_capture_runs": {
+                    "description": "LiveCaptureRuns holds the value of the \"live_capture_runs\" field.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/utils.LiveCaptureRun"
+                    }
                 },
                 "on_hold": {
                     "description": "OnHold holds the value of the \"on_hold\" field.",
@@ -8506,6 +8518,20 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "utils.LiveCaptureRun": {
+            "type": "object",
+            "properties": {
+                "video_offset": {
+                    "type": "number"
+                },
+                "wall_end": {
+                    "type": "string"
+                },
+                "wall_start": {
                     "type": "string"
                 }
             }

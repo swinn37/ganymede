@@ -27,10 +27,11 @@ type Config struct {
 	} `json:"archive"`
 	StorageTemplates StorageTemplate `json:"storage_templates"` // Storage folder/file templates.
 	Livestream       struct {
-		Proxies         []ProxyListItem `json:"proxies" validate:"dive"` // List of proxies for live stream download.
-		ProxyEnabled    bool            `json:"proxy_enabled"`           // Enable proxy usage.
-		ProxyParameters string          `json:"proxy_parameters"`        // Query parameters for proxy URL.
-		ProxyWhitelist  []string        `json:"proxy_whitelist"`         // Channels exempt from proxy.
+		Proxies               []ProxyListItem `json:"proxies" validate:"dive"`                  // List of proxies for live stream download.
+		ProxyEnabled          bool            `json:"proxy_enabled"`                            // Enable proxy usage.
+		ProxyParameters       string          `json:"proxy_parameters"`                         // Query parameters for proxy URL.
+		ProxyWhitelist        []string        `json:"proxy_whitelist"`                          // Channels exempt from proxy.
+		ReconnectGraceMinutes int             `json:"reconnect_grace_minutes" validate:"gte=0"` // Resume a dropped live stream into the same video if it returns within this many minutes (0 = disabled).
 	} `json:"livestream"`
 	Experimental struct {
 		BetterLiveStreamDetectionAndCleanup bool `json:"better_live_stream_detection_and_cleanup"` // [EXPERIMENTAL] Enable enhanced detection and cleanup.
@@ -219,6 +220,7 @@ func (c *Config) SetDefaults() {
 	c.Livestream.ProxyEnabled = false
 	c.Livestream.ProxyParameters = "%3Fplayer%3Dtwitchweb%26type%3Dany%26allow_source%3Dtrue%26allow_audio_only%3Dtrue%26allow_spectre%3Dfalse%26fast_bread%3Dtrue"
 	c.Livestream.ProxyWhitelist = []string{}
+	c.Livestream.ReconnectGraceMinutes = 0
 
 	c.LogRetentionDays = 30
 

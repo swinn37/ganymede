@@ -96,6 +96,14 @@ type LiveChat struct {
 	Comments []LiveComment `json:"comments"`
 }
 
+// LiveCaptureRun is one ffmpeg run of a live capture resumed after stream drops: when it
+// started and stopped, and where its content starts in the archived video (seconds).
+type LiveCaptureRun struct {
+	WallStart   time.Time `json:"wall_start"`
+	WallEnd     time.Time `json:"wall_end"`
+	VideoOffset float64   `json:"video_offset"`
+}
+
 // liveChatTruncateEpsilonSec bounds clock skew between the chat/video start
 // anchor, IRC delivery delay, and ffprobe ceil/floor rounding when clamping
 // live chat to the finalized video duration.

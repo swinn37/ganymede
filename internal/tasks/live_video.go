@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -13,8 +14,21 @@ import (
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"
 	"github.com/rs/zerolog/log"
+	"github.com/zibbp/ganymede/ent"
+	"github.com/zibbp/ganymede/internal/config"
 	"github.com/zibbp/ganymede/internal/exec"
+	"github.com/zibbp/ganymede/internal/hls"
 	"github.com/zibbp/ganymede/internal/utils"
+)
+
+const (
+	// How often a dropped stream is looked for while the reconnect window is open.
+	liveCaptureRetryInterval = 20 * time.Second
+	// How often the capture playlist is restitched while a resumed run records.
+	liveCaptureStitchInterval = 2 * time.Second
+	// Timestamp gap before a resumed run, clear of the previous run's audio tail. Players follow
+	// the playlist durations; only an MP4 export keeps the gap.
+	liveCaptureRunGap = 500 * time.Millisecond
 )
 
 // //////////////////////
@@ -96,7 +110,12 @@ func (w DownloadLiveVideoWorker) Work(ctx context.Context, job *river.Job[Downlo
 	// Note: even when download fails unexpectedly, continue with finalization steps
 	// (cancel live chat, mark channel not live, enqueue post-process) so partial archive
 	// can still be completed/moved instead of being left in a stuck state.
-	downloadErr := exec.DownloadTwitchLiveVideo(ctx, dbItems.Video, dbItems.Channel, startChatDownload)
+	var downloadErr error
+	if grace := time.Duration(config.Get().Livestream.ReconnectGraceMinutes) * time.Minute; grace > 0 {
+		downloadErr = captureLiveVideoWithReconnect(ctx, store.Client, dbItems, grace, startChatDownload)
+	} else {
+		downloadErr = exec.DownloadTwitchLiveVideo(ctx, dbItems.Video, dbItems.Channel, startChatDownload, exec.LiveCaptureResume{})
+	}
 	logLiveCaptureOutcome(dbItems, job.Args.Input.QueueId, downloadErr)
 	remotelyCancelled := false
 	if downloadErr != nil {
@@ -208,5 +227,152 @@ func logLiveCaptureOutcome(dbItems *GetDatabaseItemsResponse, queueID uuid.UUID,
 		logger.Info().Err(downloadErr).Msg("live video download stopped; capture output on disk")
 	default:
 		logger.Error().Err(downloadErr).Msg("live video download failed; capture output on disk")
+	}
+}
+
+// captureLiveVideoWithReconnect captures the stream and resumes the capture in the same video
+// while the stream comes back within grace. Each run is recorded on the queue so the live
+// chat can be lined up with the video (see utils.LiveCaptureRun).
+func captureLiveVideoWithReconnect(ctx context.Context, client *ent.Client, dbItems *GetDatabaseItemsResponse, grace time.Duration, startChat chan bool) error {
+	dir := dbItems.Video.TmpVideoHlsPath
+	id := liveCaptureID(&dbItems.Video)
+	logger := log.With().Str("queue_id", dbItems.Queue.ID.String()).Str("channel", dbItems.Channel.Name).Logger()
+	var runs []utils.LiveCaptureRun
+	saveRuns := func() {
+		// Saved even when the capture was just stopped, as finalization still converts the chat.
+		if err := client.Queue.UpdateOneID(dbItems.Queue.ID).SetLiveCaptureRuns(runs).Exec(context.WithoutCancel(ctx)); err != nil {
+			logger.Error().Err(err).Msg("failed to save live capture runs")
+		}
+	}
+	var chatOnce sync.Once
+
+	capture := func(ctx context.Context) (bool, error) {
+		run := len(runs)
+		playlist, _, _ := hls.CaptureRunFiles(id, run)
+		var captured float64 // seconds the video holds before this run
+		if run > 0 {
+			if err := hls.KeepFirstCaptureRun(dir, id); err != nil {
+				return false, err
+			}
+			var err error
+			if captured, err = hls.StitchCaptureRuns(dir, id, run); err != nil {
+				return false, err
+			}
+		}
+		before, _ := hls.MediaPlaylistDuration(filepath.Join(dir, playlist)) // no playlist before the run
+		started := make(chan bool, 1)
+		runCtx, cancelRun := context.WithCancel(ctx)
+		defer cancelRun()
+		recorded := make(chan struct{})
+		go func() {
+			defer close(recorded)
+			select {
+			case <-started:
+			case <-runCtx.Done():
+				return
+			}
+			chatOnce.Do(func() { startChat <- true })
+			runs = append(runs, utils.LiveCaptureRun{WallStart: time.Now(), VideoOffset: captured})
+			saveRuns()
+			if run > 0 {
+				// Viewers follow the capture playlist, which lists this run as ffmpeg writes it
+				keepStitching(runCtx, dir, id, run+1)
+			}
+		}()
+
+		resume := exec.LiveCaptureResume{Run: run, KeepOpen: true}
+		if run > 0 {
+			resume.TSOffset = captured + liveCaptureRunGap.Seconds()
+		}
+		err := exec.DownloadTwitchLiveVideo(runCtx, dbItems.Video, dbItems.Channel, started, resume)
+		cancelRun()
+		<-recorded
+
+		after, _ := hls.MediaPlaylistDuration(filepath.Join(dir, playlist))
+		progressed := after > before
+		if len(runs) > run {
+			if progressed {
+				runs[run].WallEnd = time.Now()
+			} else {
+				runs = runs[:run]
+			}
+			saveRuns()
+		}
+		if progressed && run > 0 {
+			if _, stitchErr := hls.StitchCaptureRuns(dir, id, run+1); stitchErr != nil {
+				return progressed, stitchErr
+			}
+		}
+		if err != nil && ctx.Err() == nil {
+			logger.Debug().Err(err).Bool("captured", progressed).Int("run", run).Msg("live capture run ended")
+		}
+		return progressed, err
+	}
+
+	err := captureWithReconnect(ctx, grace, liveCaptureRetryInterval, time.Now, sleepContext, capture)
+	if len(runs) > 1 {
+		if removeErr := hls.RemoveCaptureRunPlaylists(dir, id); removeErr != nil {
+			logger.Warn().Err(removeErr).Msg("failed to remove live capture run playlists")
+		}
+	}
+	return err
+}
+
+// keepStitching restitches the capture playlist of runs until ctx is done.
+func keepStitching(ctx context.Context, dir, id string, runs int) {
+	ticker := time.NewTicker(liveCaptureStitchInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if _, err := hls.StitchCaptureRuns(dir, id, runs); err != nil {
+				log.Warn().Err(err).Str("dir", dir).Msg("failed to stitch live capture runs")
+			}
+		}
+	}
+}
+
+// captureWithReconnect runs capture until nothing has been captured for grace since the end
+// of the last run that captured something. It retries right after such a run and every
+// retryInterval otherwise. It returns ctx.Err() once cancelled, and the last error when
+// nothing was ever captured.
+func captureWithReconnect(ctx context.Context, grace, retryInterval time.Duration, now func() time.Time, sleep func(context.Context, time.Duration) error, capture func(context.Context) (bool, error)) error {
+	captured := false
+	var lastErr error
+	waitingSince := now()
+	for {
+		progressed, err := capture(ctx)
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		lastErr = err
+		if progressed {
+			captured = true
+			waitingSince = now()
+			continue
+		}
+		if now().Sub(waitingSince) >= grace {
+			break
+		}
+		if err := sleep(ctx, retryInterval); err != nil {
+			return err
+		}
+	}
+	if captured {
+		return nil
+	}
+	return lastErr
+}
+
+func sleepContext(ctx context.Context, d time.Duration) error {
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
 	}
 }

@@ -3,6 +3,7 @@
 package ent
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -46,6 +47,8 @@ type Queue struct {
 	TaskChatMove utils.TaskStatus `json:"task_chat_move,omitempty"`
 	// ChatStart holds the value of the "chat_start" field.
 	ChatStart time.Time `json:"chat_start,omitempty"`
+	// LiveCaptureRuns holds the value of the "live_capture_runs" field.
+	LiveCaptureRuns []utils.LiveCaptureRun `json:"live_capture_runs,omitempty"`
 	// ArchiveChat holds the value of the "archive_chat" field.
 	ArchiveChat bool `json:"archive_chat,omitempty"`
 	// RenderChat holds the value of the "render_chat" field.
@@ -90,6 +93,8 @@ func (*Queue) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
+		case queue.FieldLiveCaptureRuns:
+			values[i] = new([]byte)
 		case queue.FieldLiveArchive, queue.FieldOnHold, queue.FieldArchiveChat, queue.FieldRenderChat:
 			values[i] = new(sql.NullBool)
 		case queue.FieldTaskVodCreateFolder, queue.FieldTaskVodDownloadThumbnail, queue.FieldTaskVodSaveInfo, queue.FieldTaskVideoDownload, queue.FieldTaskVideoConvert, queue.FieldTaskVideoMove, queue.FieldTaskChatDownload, queue.FieldTaskChatConvert, queue.FieldTaskChatRender, queue.FieldTaskChatMove, queue.FieldWorkflowID, queue.FieldWorkflowRunID:
@@ -198,6 +203,14 @@ func (_m *Queue) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field chat_start", values[i])
 			} else if value.Valid {
 				_m.ChatStart = value.Time
+			}
+		case queue.FieldLiveCaptureRuns:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field live_capture_runs", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.LiveCaptureRuns); err != nil {
+					return fmt.Errorf("unmarshal field live_capture_runs: %w", err)
+				}
 			}
 		case queue.FieldArchiveChat:
 			if value, ok := values[i].(*sql.NullBool); !ok {
@@ -321,6 +334,9 @@ func (_m *Queue) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("chat_start=")
 	builder.WriteString(_m.ChatStart.Format(time.ANSIC))
+	builder.WriteString(", ")
+	builder.WriteString("live_capture_runs=")
+	builder.WriteString(fmt.Sprintf("%v", _m.LiveCaptureRuns))
 	builder.WriteString(", ")
 	builder.WriteString("archive_chat=")
 	builder.WriteString(fmt.Sprintf("%v", _m.ArchiveChat))

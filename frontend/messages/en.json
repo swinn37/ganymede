@@ -328,6 +328,8 @@
       "ytdlpVideoArgsLabel": "YT-DLP Video Arguments",
       "ytdlpVideoArgsDescription": "Custom yt-dlp arguments to use when downloading a video. This is only used for VOD downloads.",
       "liveStreamTitle": "Live Stream",
+      "reconnectGraceLabel": "Live Stream Reconnect Window (minutes)",
+      "reconnectGraceDescription": "When a live stream drops and comes back within this many minutes, keep archiving it into the same video instead of starting a new one. 0 disables it.",
       "proxySettings": "Proxy Settings",
       "proxySettingsDescription": "Archive live streams through a proxy to prevent ads. Your Twitch token is not sent to the proxy.",
       "proxyEnableLabel": "Enable Proxy",

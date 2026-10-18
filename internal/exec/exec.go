@@ -122,8 +122,15 @@ func appendFFmpegLiveOutputStreamArgs(args []string, audioOnly bool) []string {
 	)
 }
 
+// LiveCaptureResume describes one run of a live capture that resumes after its stream drops.
+type LiveCaptureResume struct {
+	Run      int     // 0 for the first run; later runs write their own files (see hls.CaptureRunFiles)
+	TSOffset float64 // seconds before the run's timestamps, so the archive keeps one timeline
+	KeepOpen bool    // leave the playlist open when the stream ends, as another run may follow
+}
+
 // buildLiveHlsCaptureFFmpegArgs returns ffmpeg args for live HLS (fmp4) capture.
-func buildLiveHlsCaptureFFmpegArgs(inputURI, playlistPath, segmentPattern, initFilename string, audioOnly bool, configFfmpegArgs string, monitorStalls bool) []string {
+func buildLiveHlsCaptureFFmpegArgs(inputURI, playlistPath, segmentPattern, initFilename string, audioOnly bool, configFfmpegArgs string, monitorStalls bool, resume LiveCaptureResume) []string {
 	ffmpegArgs := []string{
 		"-y",
 		"-hide_banner",
@@ -148,13 +155,26 @@ func buildLiveHlsCaptureFFmpegArgs(inputURI, playlistPath, segmentPattern, initF
 
 	// Append user-defined (global) params before outputs
 	ffmpegArgs = append(ffmpegArgs, strings.Fields(configFfmpegArgs)...)
+	if resume.TSOffset > 0 {
+		// The fmp4 muxer would only note the offset in the run's init segment, which readers of the
+		// stitched capture skip: frag_discont writes it into the fragment timestamps.
+		ffmpegArgs = append(ffmpegArgs,
+			"-output_ts_offset", strconv.FormatFloat(resume.TSOffset, 'f', 6, 64),
+			"-hls_segment_options", "movflags=+frag_discont",
+		)
+	}
+	hlsFlags := "append_list+independent_segments+temp_file"
+	if resume.KeepOpen {
+		// Viewers keep following the playlist while the stream may still resume
+		hlsFlags += "+omit_endlist"
+	}
 
 	return append(ffmpegArgs,
 		"-start_number", "0",
 		"-hls_time", "10",
 		"-hls_list_size", "0",
 		"-hls_playlist_type", "event",
-		"-hls_flags", "append_list+independent_segments+temp_file",
+		"-hls_flags", hlsFlags,
 		"-hls_segment_type", "fmp4",
 		"-hls_fmp4_init_filename", initFilename,
 		// Twitch ADTS AAC needs this for the fmp4 muxer; no-op otherwise.
@@ -322,7 +342,7 @@ func DownloadTwitchVideo(ctx context.Context, video ent.Vod) error {
 	return nil
 }
 
-func DownloadTwitchLiveVideo(ctx context.Context, video ent.Vod, channel ent.Channel, startChat chan bool) error {
+func DownloadTwitchLiveVideo(ctx context.Context, video ent.Vod, channel ent.Channel, startChat chan bool, resume LiveCaptureResume) error {
 	video.Edges.Channel = &channel
 	env := config.GetEnvConfig()
 	monitorStalls := !env.DisableLiveArchiveStallCheck
@@ -335,9 +355,13 @@ func DownloadTwitchLiveVideo(ctx context.Context, video ent.Vod, channel ent.Cha
 		}
 	}
 
-	// open video log file
+	// open video log file; a resumed run adds to it
 	logFilePath := fmt.Sprintf("%s/%s-video.log", env.LogsDir, video.ID.String())
-	file, err := os.Create(logFilePath)
+	logFlags := os.O_CREATE | os.O_WRONLY | os.O_TRUNC
+	if resume.Run > 0 {
+		logFlags = os.O_CREATE | os.O_WRONLY | os.O_APPEND
+	}
+	file, err := os.OpenFile(logFilePath, logFlags, 0o644)
 	if err != nil {
 		return fmt.Errorf("failed to open log file: %w", err)
 	}
@@ -420,14 +444,16 @@ func DownloadTwitchLiveVideo(ctx context.Context, video ent.Vod, channel ent.Cha
 	}
 	// Capture files use the immutable stream ID; ExtID may later become the VOD ID.
 	captureID := liveCaptureID(video)
+	playlistName, initName, segmentPattern := hls.CaptureRunFiles(captureID, resume.Run)
 	ffmpegArgs := buildLiveHlsCaptureFFmpegArgs(
 		qualitiesURI[closestQuality],
-		filepath.Join(video.TmpVideoHlsPath, captureID+"-video.m3u8"),
-		filepath.Join(video.TmpVideoHlsPath, captureID+"_segment%06d.m4s"),
-		fmt.Sprintf("%s_init.mp4", captureID),
+		filepath.Join(video.TmpVideoHlsPath, playlistName),
+		filepath.Join(video.TmpVideoHlsPath, segmentPattern),
+		initName,
 		audioOnly,
 		config.Get().Parameters.VideoConvert,
 		monitorStalls,
+		resume,
 	)
 
 	// Run ffmpeg

@@ -63,6 +63,7 @@ const AdminSettingsPage = () => {
         proxies: data?.livestream.proxies || [],
         proxy_enabled: data?.livestream.proxy_enabled ?? true,
         proxy_whitelist: data?.livestream.proxy_whitelist || [],
+        reconnect_grace_minutes: data?.livestream.reconnect_grace_minutes ?? 0,
       }
     }
   })
@@ -334,6 +335,16 @@ const AdminSettingsPage = () => {
             />
 
             <Title mt={10} order={3}>{t('videoSettings.liveStreamTitle')}</Title>
+
+            <NumberInput
+              mt={5}
+              label={t('videoSettings.reconnectGraceLabel')}
+              description={t('videoSettings.reconnectGraceDescription')}
+              placeholder="0"
+              key={form.key('livestream.reconnect_grace_minutes')}
+              {...form.getInputProps('livestream.reconnect_grace_minutes')}
+              min={0}
+            />
 
             <Title mt={5} order={5}>{t('videoSettings.proxySettings')}</Title>
             <Text>{t('videoSettings.proxySettingsDescription')}</Text>

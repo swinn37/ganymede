@@ -23,6 +23,7 @@ export interface Config {
     proxies: ProxyListItem[];
     proxy_enabled: boolean;
     proxy_whitelist: string[];
+    reconnect_grace_minutes: number;
   };
 }
 

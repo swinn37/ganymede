@@ -389,7 +389,7 @@ OUTER:
 				if _, found := watchedChannelCategories[strings.ToLower(stream.GameName)]; !found {
 					log.Info().Str("channel", lwc.Edges.Channel.Name).Str("category", stream.GameName).Str("category_restrictions", strings.Join(categoryNamesForLog, ", ")).Msg("stream does not match selected categories, stopping archive")
 					// Stop archive
-					video, err := s.Store.Client.Vod.Query().Where(entVod.ExtStreamID(stream.ID)).WithChannel().WithQueue().Order(ent.Desc(entVod.FieldCreatedAt)).First(ctx)
+					video, err := s.liveArchiveVideo(ctx, stream, lwc.Edges.Channel.ID)
 					if err != nil {
 						log.Error().Err(err).Msg("error getting video")
 						continue OUTER
@@ -407,7 +407,7 @@ OUTER:
 			}
 
 			// Run chapter update, this needs to be done before additional checks to cover the case where a stream is being archived but fails restriction checks
-			err = s.updateLiveStreamArchiveChapter(stream)
+			err = s.updateLiveStreamArchiveChapter(ctx, stream, lwc.Edges.Channel.ID)
 			if err != nil {
 				log.Error().Err(err).Msg("error updating live stream archive chapter")
 			}
@@ -469,7 +469,9 @@ OUTER:
 					log.Error().Err(err).Msg("error getting queue items")
 				}
 				for _, queueItem := range queueItems {
-					if queueItem.Edges.Vod.ExtStreamID == stream.ID {
+					// A capture resumed after a stream drop keeps its video when the stream returns under a new ID
+					resuming := reconnectEnabled() && queueItem.LiveArchive && queueItem.TaskVideoDownload == utils.Running
+					if queueItem.Edges.Vod.ExtStreamID == stream.ID || resuming {
 						log.Debug().Msgf("%s is already being archived", lwc.Edges.Channel.Name)
 						continue OUTER
 					}
@@ -570,10 +572,28 @@ func channelInLiveStreamInfo(a string, list []platform.LiveStreamInfo) platform.
 	return platform.LiveStreamInfo{}
 }
 
+func reconnectEnabled() bool {
+	return config.Get().Livestream.ReconnectGraceMinutes > 0
+}
+
+// liveArchiveVideo returns the video archiving a live stream, with its queue. With stream
+// reconnects enabled, a capture resumed after a drop keeps the video it started under another
+// stream ID, so the channel's running capture stands in when no video has the stream's ID.
+func (s *Service) liveArchiveVideo(ctx context.Context, stream platform.LiveStreamInfo, channelID uuid.UUID) (*ent.Vod, error) {
+	video, err := s.Store.Client.Vod.Query().Where(entVod.ExtStreamID(stream.ID)).WithChannel().WithQueue().Order(ent.Desc(entVod.FieldCreatedAt)).First(ctx)
+	if !ent.IsNotFound(err) || !reconnectEnabled() {
+		return video, err
+	}
+	return s.Store.Client.Vod.Query().Where(
+		entVod.HasChannelWith(channel.ID(channelID)),
+		entVod.HasQueueWith(entQueue.LiveArchive(true), entQueue.TaskVideoDownloadEQ(utils.Running)),
+	).WithChannel().WithQueue().Order(ent.Desc(entVod.FieldCreatedAt)).First(ctx)
+}
+
 // updateLiveStreamArchiveChapter updates the last chapter of a live stream archive if the category has changed.
-func (s *Service) updateLiveStreamArchiveChapter(stream platform.LiveStreamInfo) error {
+func (s *Service) updateLiveStreamArchiveChapter(ctx context.Context, stream platform.LiveStreamInfo, channelID uuid.UUID) error {
 	// Get video
-	video, err := s.Store.Client.Vod.Query().Where(entVod.ExtStreamID(stream.ID)).Order(ent.Desc(entVod.FieldCreatedAt)).First(context.Background())
+	video, err := s.liveArchiveVideo(ctx, stream, channelID)
 	if err != nil {
 		if _, ok := err.(*ent.NotFoundError); ok {
 			// Video not found, likely not archived yet because of restrictions
