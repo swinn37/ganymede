@@ -8194,6 +8194,9 @@ const docTemplate = `{
                     "description": "UpdatedAt holds the value of the \"updated_at\" field.",
                     "type": "string"
                 },
+                "video_available": {
+                    "type": "boolean"
+                },
                 "video_hls_path": {
                     "description": "The path where the video hls files are",
                     "type": "string"

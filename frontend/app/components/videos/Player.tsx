@@ -3,7 +3,7 @@ import { Video, VideoPlayer as VideoJsPlayer, usePlayer as useVodPlayer } from '
 import { HlsJsVideo } from '@videojs/react/media/hlsjs-video';
 import { I18nProvider } from '@videojs/react/i18n';
 import { VideoSkin } from '@/components/videojs/video/skin';
-import { Video as VideoType, VideoType as GanymedeVideoType } from '@/app/hooks/useVideos';
+import { VideoDetails, VideoType as GanymedeVideoType } from '@/app/hooks/useVideos';
 import classes from "./Player.module.css"
 import type { CSSProperties } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -26,7 +26,7 @@ import VideoPlayerLiveIndicator from './PlayerLiveIndicator';
 import VideoPlayerControlsTiming from './PlayerControlsTiming';
 
 interface Params {
-  video: VideoType;
+  video: VideoDetails;
   ref: GanymedePlayerRef;
 }
 
@@ -115,16 +115,17 @@ const VideoPlayer = ({ video, ref }: Params) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const isRecording = isArchiveActive(video.status);
+  // Once the archive's video is in place, it plays while the chat is still processed
+  const isRecording = isArchiveActive(video.status) && !video.video_available;
   const isHls = isRecording || video.video_path.endsWith("m3u8");
 
   const videoSrc = useMemo(() => {
     // Allow for processing videos to be played via HLS from the temp directory if enabled
-    if (isArchiveActive(video.status)) {
+    if (isRecording) {
       return `${(env('NEXT_PUBLIC_CDN_URL') ?? '')}${escapeURL(video.tmp_video_hls_path)}/${video.ext_stream_id || video.ext_id}-video.m3u8`;
     }
     return `${(env('NEXT_PUBLIC_CDN_URL') ?? '')}${escapeURL(video.video_path)}`;
-  }, [video.status, video.tmp_video_hls_path, video.ext_stream_id, video.ext_id, video.video_path]);
+  }, [isRecording, video.tmp_video_hls_path, video.ext_stream_id, video.ext_id, video.video_path]);
 
   // A recording in progress plays like a regular video: from the start, with a duration that grows with the
   // playlist instead of hls.js's infinite live duration.

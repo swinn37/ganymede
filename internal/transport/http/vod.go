@@ -189,10 +189,12 @@ func (h *Handler) GetVods(c echo.Context) error {
 	return SuccessResponse(c, v, "videos")
 }
 
-// VideoDetails includes the current availability of the temporary live preview.
+// VideoDetails includes the current availability of the temporary live preview, and of the
+// archived video while the chat of an archive is still processed.
 type VideoDetails struct {
 	*ent.Vod
 	LivePreviewAvailable bool `json:"live_preview_available"`
+	VideoAvailable       bool `json:"video_available"`
 }
 
 // GetVod godoc
@@ -272,7 +274,7 @@ func (h *Handler) GetVod(c echo.Context) error {
 		}
 		return ErrorResponse(c, http.StatusInternalServerError, err.Error())
 	}
-	return SuccessResponse(c, VideoDetails{Vod: v, LivePreviewAvailable: vod.LivePreviewAvailable(v)}, "video")
+	return SuccessResponse(c, VideoDetails{Vod: v, LivePreviewAvailable: vod.LivePreviewAvailable(v), VideoAvailable: vod.ArchivedVideoAvailable(v)}, "video")
 }
 
 // GetVodByExternalId godoc

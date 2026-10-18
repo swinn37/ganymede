@@ -71,6 +71,8 @@ export interface Video {
 
 export interface VideoDetails extends Video {
   live_preview_available: boolean;
+  // The video is in place while the chat of the archive is still processed
+  video_available: boolean;
 }
 
 export interface VideoEdges {

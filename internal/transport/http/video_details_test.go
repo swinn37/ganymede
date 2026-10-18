@@ -60,6 +60,43 @@ func TestVideoDetailsLivePreviewAvailability(t *testing.T) {
 	}
 }
 
+// The video of a live archive is moved into place, ending its preview, before the chat is
+// processed: it plays in the meantime.
+func TestVideoDetailsVideoAvailability(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name    string
+		status  utils.ArchiveStatus
+		tmpLeft bool
+		video   string
+		want    bool
+	}{
+		{"recording", utils.ArchiveRunning, true, "", false},
+		{"finalizing before the move", utils.ArchiveFinalizing, true, "video", false},
+		{"finalizing after the move", utils.ArchiveFinalizing, false, "video", true},
+		{"finalizing with an empty video", utils.ArchiveFinalizing, false, "empty", false},
+		{"finalizing without video", utils.ArchiveFinalizing, false, "", false},
+		{"completed", utils.ArchiveCompleted, false, "video", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			dir := t.TempDir()
+			video := &ent.Vod{ID: uuid.New(), ExtID: "123", Type: utils.Live, Status: tc.status,
+				TmpVideoHlsPath: filepath.Join(dir, "tmp_hls"), VideoPath: filepath.Join(dir, "123-video.mp4")}
+			if tc.tmpLeft {
+				require.NoError(t, os.Mkdir(video.TmpVideoHlsPath, 0700))
+			}
+			switch tc.video {
+			case "video":
+				require.NoError(t, os.WriteFile(video.VideoPath, []byte("mp4"), 0600))
+			case "empty":
+				require.NoError(t, os.WriteFile(video.VideoPath, nil, 0600))
+			}
+			require.Equal(t, tc.want, requestVideoDetails(t, video)["video_available"])
+		})
+	}
+}
+
 func TestVideoDetailsDetectsNewLivePreview(t *testing.T) {
 	t.Parallel()
 	video := &ent.Vod{ID: uuid.New(), ExtID: "123", Type: utils.Live, Status: utils.ArchiveRunning, TmpVideoHlsPath: t.TempDir()}

@@ -111,7 +111,7 @@ const VideoPage = ({ params }: { params: Promise<Params> }) => {
               ? undefined
               : (videoTheaterMode || fullscreen ? classes.videoPlayerTheaterMode : classes.videoPlayer)
           }>
-            {isArchiveActive(data.status) && !data.live_preview_available ? (
+            {isArchiveActive(data.status) && !data.live_preview_available && !data.video_available ? (
               <RecordingNotice video={data} />
             ) : (
               <VideoPlayer video={data} ref={player} />
