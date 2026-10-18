@@ -968,6 +968,8 @@
     "videoTypeTooltip": "Video type",
     "videoClipsTitle": "Video Clips",
     "storageSizeTooltip": "Storage Size",
+    "liveButtonLabel": "LIVE",
+    "liveButtonTooltip": "Jump to live",
     "remainingTimeTooltip": "Time left at {rate}x",
     "enums": {
       "VideoSortBy": {

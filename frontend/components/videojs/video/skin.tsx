@@ -21,6 +21,7 @@ export interface VideoSkinProps extends Omit<NonNullable<ComponentProps<typeof C
   children?: ReactNode;
   bookmarks?: readonly TimelineBookmark[];
   customControls?: ReactNode;
+  timelineOverlay?: ReactNode;
   renderPoster?: NonNullable<ComponentProps<typeof Poster>>['renderImage'];
   renderThumbnail?: NonNullable<ComponentProps<typeof DefaultVideoControls>>['renderThumbnail'];
 }
@@ -30,6 +31,7 @@ export function VideoSkin({
   bookmarks,
   className,
   customControls,
+  timelineOverlay,
   renderPoster,
   renderThumbnail,
   ...props
@@ -45,6 +47,7 @@ export function VideoSkin({
       <DefaultVideoControls
         bookmarks={bookmarks}
         customControls={customControls}
+        timelineOverlay={timelineOverlay}
         renderThumbnail={renderThumbnail}
       />
 

@@ -1,0 +1,38 @@
+/* Hangs above the right end of the time slider (its wrapper is position: relative), clear of the control bar. */
+.liveBadge,
+.liveButton {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 16px);
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border: 0;
+  border-radius: 4px;
+  color: #fff;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.liveBadge {
+  background-color: #eb0400;
+}
+
+.liveButton {
+  background-color: rgb(0 0 0 / 0.6);
+  cursor: pointer;
+}
+
+.liveButton:hover {
+  background-color: rgb(60 60 60 / 0.85);
+}
+
+.liveButton:focus-visible {
+  outline: 2px solid var(--media-ring, #fff);
+  outline-offset: 2px;
+}

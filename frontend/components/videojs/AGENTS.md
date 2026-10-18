@@ -57,9 +57,14 @@ An upstream refresh must retain or deliberately reimplement all of these:
    - `ui/volume-popover.tsx` shows the volume percentage above the slider and
      moves the volume in 5% mouse wheel steps over the mute button and the
      popup, with `frontend/app/components/videos/playerWheel.ts`.
+   - `video/skin.tsx` and `video/layout/controls.tsx` pass and render the
+     `timelineOverlay` node over the time slider; `Player.tsx` puts the live
+     indicator of a recording in progress there.
    - `styles/ganymede.css` holds the styles of these additions.
    - `PlayerControlsTiming.tsx`, rendered as a skin child by `Player.tsx`,
      hides the controls sooner and keeps them while the pointer rests on them.
+   - `Player.tsx` plays recordings in progress with the VOD skin, so
+     `live-video/` is currently unused.
 
 Do not restore the entire pre-update directory after refreshing it. Doing so
 would silently discard upstream fixes. Merge the small customizations above

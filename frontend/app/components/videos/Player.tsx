@@ -1,10 +1,8 @@
 import { ArchiveStatus, isArchiveActive } from "@/app/util/archiveStatus";
 import { Video, VideoPlayer as VideoJsPlayer, usePlayer as useVodPlayer } from '@videojs/react/video';
-import { LiveVideoPlayer as LiveVideoJsPlayer, usePlayer as useLivePlayer } from '@videojs/react/live-video';
 import { HlsJsVideo } from '@videojs/react/media/hlsjs-video';
 import { I18nProvider } from '@videojs/react/i18n';
 import { VideoSkin } from '@/components/videojs/video/skin';
-import { LiveVideoSkin } from '@/components/videojs/live-video/skin';
 import { Video as VideoType, VideoType as GanymedeVideoType } from '@/app/hooks/useVideos';
 import classes from "./Player.module.css"
 import type { CSSProperties } from 'react';
@@ -24,6 +22,7 @@ import useSettingsStore from '@/app/store/useSettingsStore';
 import VideoPlayerHideChatIcon from './PlayerHideChatIcon';
 import VideoPlayerAbsoluteTimeIcon from './PlayerAbsoluteTimeIcon';
 import type { GanymedePlayerRef } from './ganymedePlayerRef';
+import VideoPlayerLiveIndicator from './PlayerLiveIndicator';
 import VideoPlayerControlsTiming from './PlayerControlsTiming';
 
 interface Params {
@@ -49,12 +48,6 @@ const AbsoluteTimeOverlay = ({ startedAt, currentTime }: { startedAt: string | D
 // `unknown` under the repo toolchain; narrow at the selection site.
 const AbsoluteTimeDisplay = ({ startedAt }: { startedAt: string | Date }) => {
   const currentTime = useVodPlayer((s) => (s as unknown as { currentTime: number }).currentTime);
-  const safeCurrentTime = typeof currentTime === 'number' && Number.isFinite(currentTime) ? currentTime : 0;
-  return <AbsoluteTimeOverlay startedAt={startedAt} currentTime={safeCurrentTime} />;
-};
-
-const LiveAbsoluteTimeDisplay = ({ startedAt }: { startedAt: string | Date }) => {
-  const currentTime = useLivePlayer((s) => (s as unknown as { currentTime: number }).currentTime);
   const safeCurrentTime = typeof currentTime === 'number' && Number.isFinite(currentTime) ? currentTime : 0;
   return <AbsoluteTimeOverlay startedAt={startedAt} currentTime={safeCurrentTime} />;
 };
@@ -98,6 +91,8 @@ const VideoPlayer = ({ video, ref }: Params) => {
   const autoplayVideo = useSettingsStore((state) => state.autoplayVideo);
   const playbackRate = useSettingsStore((state) => state.playbackRate);
   const setPlaybackRate = useSettingsStore((state) => state.setPlaybackRate);
+  // Set by the LIVE button right before it forces 1x, so that rate is not saved as the viewer's speed
+  const keepSavedRate = useRef(false);
   const rateApplied = useRef(false);
 
   const axiosPrivate = useAxiosPrivate();
@@ -120,7 +115,8 @@ const VideoPlayer = ({ video, ref }: Params) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const isHls = isArchiveActive(video.status) || video.video_path.endsWith("m3u8");
+  const isRecording = isArchiveActive(video.status);
+  const isHls = isRecording || video.video_path.endsWith("m3u8");
 
   const videoSrc = useMemo(() => {
     // Allow for processing videos to be played via HLS from the temp directory if enabled
@@ -129,6 +125,13 @@ const VideoPlayer = ({ video, ref }: Params) => {
     }
     return `${(env('NEXT_PUBLIC_CDN_URL') ?? '')}${escapeURL(video.video_path)}`;
   }, [video.status, video.tmp_video_hls_path, video.ext_stream_id, video.ext_id, video.video_path]);
+
+  // A recording in progress plays like a regular video: from the start, with a duration that grows with the
+  // playlist instead of hls.js's infinite live duration.
+  const recordingSource = useMemo(
+    () => ({ src: videoSrc, engine: { hlsJs: { startPosition: 0, liveDurationInfinity: false } } }),
+    [videoSrc],
+  );
 
   const videoPoster = useMemo(() => {
     if (video.thumbnail_path) {
@@ -214,7 +217,7 @@ const VideoPlayer = ({ video, ref }: Params) => {
     }
   }, [player]);
 
-  // The saved speed applies once per source: seeks fire canplay again.
+  // The saved speed applies once per source: seeks fire canplay again, and the LIVE button's 1x must stick.
   useEffect(() => {
     rateApplied.current = false;
   }, [videoSrc]);
@@ -230,6 +233,10 @@ const VideoPlayer = ({ video, ref }: Params) => {
   const handleRateChange = useCallback(() => {
     const el = player.current;
     if (!el || !rateApplied.current) return;
+    if (keepSavedRate.current) {
+      keepSavedRate.current = false;
+      return;
+    }
     setPlaybackRate(el.playbackRate);
   }, [player, setPlaybackRate]);
 
@@ -238,6 +245,34 @@ const VideoPlayer = ({ video, ref }: Params) => {
     applyStoredRate();
     applyPendingResume();
   }, [applyStoredVolume, applyStoredRate, applyPendingResume]);
+
+  // On the first play, the HLS adapter jumps to the live edge of a recording in progress. Put the playhead back
+  // where it was: the start or the resume position. A later seek, or one that already was near the end, stays.
+  useEffect(() => {
+    const el = player.current;
+    if (!mounted || !isRecording || !el) return;
+    let before: number | undefined;
+    let deadline = 0;
+    const onPlay = (event: Event) => {
+      if (event.target !== el || before !== undefined) return;
+      before = el.currentTime;
+      deadline = performance.now() + 10000;
+    };
+    const onSeeking = () => {
+      if (before === undefined || Number.isNaN(before) || performance.now() > deadline) return;
+      const end = el.seekable.length ? el.seekable.end(el.seekable.length - 1) : NaN;
+      const restore = before;
+      before = NaN;
+      if (restore < end - 60 && el.currentTime > end - 60) el.currentTime = restore;
+    };
+    // Capture on the document runs before the adapter's own play listener on the element
+    document.addEventListener('play', onPlay, true);
+    el.addEventListener('seeking', onSeeking);
+    return () => {
+      document.removeEventListener('play', onPlay, true);
+      el.removeEventListener('seeking', onSeeking);
+    };
+  }, [mounted, isRecording, player, videoSrc]);
 
   // Retry resume once the element exists and the target is known.
   useEffect(() => {
@@ -328,7 +363,6 @@ const VideoPlayer = ({ video, ref }: Params) => {
 
   const mediaProps = {
     ref: player,
-    src: videoSrc,
     crossOrigin: "anonymous" as const,
     playsInline: true,
     autoPlay: autoplayVideo,
@@ -341,62 +375,45 @@ const VideoPlayer = ({ video, ref }: Params) => {
 
   return (
     <div className={classes.playerWrapper}>
-      {isArchiveActive(video.status) ? (
-        <LiveVideoJsPlayer title={video.title} poster={videoPoster}>
-          <I18nProvider locale={locale}>
-            <LiveVideoSkin
-              className={
-                videoTheaterMode
-                  ? classes.mediaPlayerTheaterMode
-                  : classes.mediaPlayer
-              }
-              style={skinStyle}
-              customControls={<PlayerCustomControls />}
-            >
-              <HlsJsVideo {...mediaProps} />
-              {showAbsoluteTime && <LiveAbsoluteTimeDisplay startedAt={startedAt} />}
-              <VideoPlayerControlsTiming />
-            </LiveVideoSkin>
-          </I18nProvider>
-        </LiveVideoJsPlayer>
-      ) : (
-        <VideoJsPlayer title={video.title} poster={videoPoster}>
-          <I18nProvider locale={locale}>
-            <VideoSkin
-              className={
-                videoTheaterMode
-                  ? classes.mediaPlayerTheaterMode
-                  : classes.mediaPlayer
-              }
-              style={skinStyle}
-              bookmarks={noteBookmarks}
-              customControls={<PlayerCustomControls />}
-            >
-              {isHls ? (
-                <HlsJsVideo {...mediaProps}>
-                  {chapterSrc && (
-                    <track kind="chapters" src={chapterSrc} default />
-                  )}
-                  {thumbnailsSrc && (
-                    <track kind="metadata" label="thumbnails" src={thumbnailsSrc} default />
-                  )}
-                </HlsJsVideo>
-              ) : (
-                <Video {...mediaProps}>
-                  {chapterSrc && (
-                    <track kind="chapters" src={chapterSrc} default />
-                  )}
-                  {thumbnailsSrc && (
-                    <track kind="metadata" label="thumbnails" src={thumbnailsSrc} default />
-                  )}
-                </Video>
-              )}
-              {showAbsoluteTime && <AbsoluteTimeDisplay startedAt={startedAt} />}
-              <VideoPlayerControlsTiming />
-            </VideoSkin>
-          </I18nProvider>
-        </VideoJsPlayer>
-      )}
+      <VideoJsPlayer title={video.title} poster={videoPoster}>
+        <I18nProvider locale={locale}>
+          <VideoSkin
+            className={
+              videoTheaterMode
+                ? classes.mediaPlayerTheaterMode
+                : classes.mediaPlayer
+            }
+            style={skinStyle}
+            bookmarks={noteBookmarks}
+            customControls={<PlayerCustomControls />}
+            timelineOverlay={isRecording ? <VideoPlayerLiveIndicator onResetRate={() => { keepSavedRate.current = true }} /> : undefined}
+          >
+            {isRecording ? (
+              <HlsJsVideo {...mediaProps} source={recordingSource} streamType="on-demand" />
+            ) : isHls ? (
+              <HlsJsVideo {...mediaProps} src={videoSrc}>
+                {chapterSrc && (
+                  <track kind="chapters" src={chapterSrc} default />
+                )}
+                {thumbnailsSrc && (
+                  <track kind="metadata" label="thumbnails" src={thumbnailsSrc} default />
+                )}
+              </HlsJsVideo>
+            ) : (
+              <Video {...mediaProps} src={videoSrc}>
+                {chapterSrc && (
+                  <track kind="chapters" src={chapterSrc} default />
+                )}
+                {thumbnailsSrc && (
+                  <track kind="metadata" label="thumbnails" src={thumbnailsSrc} default />
+                )}
+              </Video>
+            )}
+            {showAbsoluteTime && <AbsoluteTimeDisplay startedAt={startedAt} />}
+            <VideoPlayerControlsTiming />
+          </VideoSkin>
+        </I18nProvider>
+      </VideoJsPlayer>
     </div>
   );
 }

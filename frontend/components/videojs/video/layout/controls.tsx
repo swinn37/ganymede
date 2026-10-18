@@ -19,10 +19,12 @@ import { VideoSettingsMenu } from '../menus/settings-menu';
 export interface DefaultVideoControlsProps {
   bookmarks?: readonly TimelineBookmark[];
   customControls?: ReactNode;
+  // Ganymede: drawn over the time slider, e.g. the live indicator of a recording in progress
+  timelineOverlay?: ReactNode;
   renderThumbnail?: NonNullable<ComponentProps<typeof TimeSlider>>['renderThumbnail'];
 }
 
-export function DefaultVideoControls({ bookmarks = [], customControls, renderThumbnail }: DefaultVideoControlsProps = {}) {
+export function DefaultVideoControls({ bookmarks = [], customControls, timelineOverlay, renderThumbnail }: DefaultVideoControlsProps = {}) {
   return (
     <Controls.Root>
       <Controls.Backdrop className={'video-controls-backdrop'} />
@@ -39,6 +41,7 @@ export function DefaultVideoControls({ bookmarks = [], customControls, renderThu
               <div className="video-time-slider-with-bookmarks">
                 <TimeSlider renderThumbnail={renderThumbnail} />
                 <BookmarkMarkers bookmarks={bookmarks} />
+                {timelineOverlay}
               </div>
               <Time.Value className={cn('media-time-toggle', 'video-time-value')} type="remaining" toggle />
             </Controls.Group>
