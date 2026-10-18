@@ -26,6 +26,7 @@ interface NavLink {
 const languages = [
   { code: 'en', label: 'English' },
   { code: 'de', label: 'German' },
+  { code: 'fr', label: 'Français' },
   { code: 'uk', label: 'Ukrainian' },
 ];
 
