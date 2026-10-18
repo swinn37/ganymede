@@ -11,6 +11,7 @@ import (
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"
 	"github.com/rs/zerolog/log"
+	"github.com/zibbp/ganymede/internal/config"
 	"github.com/zibbp/ganymede/internal/database"
 	"github.com/zibbp/ganymede/internal/exec"
 	"github.com/zibbp/ganymede/internal/platform"
@@ -152,17 +153,22 @@ func (w ConvertLiveChatWorker) Work(ctx context.Context, job *river.Job[ConvertL
 		return err
 	}
 
+	dbItems, err := getDatabaseItems(ctx, store.Client, job.Args.Input.QueueId)
+	if err != nil {
+		return err
+	}
+	// A capture waiting for its stream to return records its runs until it ends; converting
+	// earlier would misplace the chat.
+	if dbItems.Queue.TaskVideoDownload == utils.Running && config.Get().Livestream.ReconnectGraceMinutes > 0 {
+		return river.JobSnooze(30 * time.Second)
+	}
+
 	// set queue status to running
 	err = setQueueStatus(ctx, store.Client, QueueStatusInput{
 		Status:  utils.Running,
 		QueueId: job.Args.Input.QueueId,
 		Task:    utils.TaskConvertChat,
 	})
-	if err != nil {
-		return err
-	}
-
-	dbItems, err := getDatabaseItems(ctx, store.Client, job.Args.Input.QueueId)
 	if err != nil {
 		return err
 	}
@@ -241,12 +247,21 @@ func (w ConvertLiveChatWorker) Work(ctx context.Context, job *river.Job[ConvertL
 		return err
 	}
 
-	videoStartTime, err := resolveLiveChatVideoStartTime(ctx, store, platform, dbItems, videos, videoDurationSec)
+	// The platform VOD only bounds a capture that never dropped: a resumed one lines the chat up
+	// with its recorded runs.
+	runs := dbItems.Queue.LiveCaptureRuns
+	var videoStartTime time.Time
+	if len(runs) > 1 {
+		videoStartTime, err = persistLiveChatVideoStartTime(ctx, store, dbItems, runs[0].WallStart)
+	} else {
+		runs = nil
+		videoStartTime, err = resolveLiveChatVideoStartTime(ctx, store, platform, dbItems, videos, videoDurationSec)
+	}
 	if err != nil {
 		return err
 	}
 
-	err = utils.ConvertTwitchLiveChatToTDLChat(dbItems.Video.TmpLiveChatDownloadPath, dbItems.Video.TmpLiveChatConvertPath, dbItems.Channel.Name, dbItems.Video.ID.String(), dbItems.Video.ExtID, channelIdInt, videoStartTime, string(previousVideoID), videoDurationSec)
+	err = utils.ConvertTwitchLiveChatToTDLChat(dbItems.Video.TmpLiveChatDownloadPath, dbItems.Video.TmpLiveChatConvertPath, dbItems.Channel.Name, dbItems.Video.ID.String(), dbItems.Video.ExtID, channelIdInt, videoStartTime, string(previousVideoID), videoDurationSec, runs)
 	if err != nil {
 		return err
 	}
