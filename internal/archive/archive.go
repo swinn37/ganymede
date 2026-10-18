@@ -623,7 +623,8 @@ func (s *Service) ArchiveLivestream(ctx context.Context, input ArchiveVideoInput
 		TmpVideoHLSPath:         filepath.Join(envConfig.TempDir, fmt.Sprintf("%s_%s-video_hls0", video.ID, vUUID)),
 	}
 
-	if config.Get().Archive.SaveAsHls {
+	// Live archives split into parts are saved as HLS
+	if cfg := config.Get(); cfg.Archive.SaveAsHls || cfg.Livestream.SplitDurationMinutes > 0 {
 		vodDTO.VideoHLSPath = fmt.Sprintf("%s/%s-video_hls", rootVideoPath, fileName)
 		vodDTO.VideoPath = fmt.Sprintf("%s/%s-video_hls/%s-video.m3u8", rootVideoPath, fileName, video.ID)
 	}

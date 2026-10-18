@@ -139,4 +139,41 @@ func TestLiveFmp4ResumedCaptureE2E(t *testing.T) {
 		t.Fatalf("exported MP4: format=%f stream=%f, want about 16.5s without anomaly", probe.FormatDuration, probe.LongestStreamDuration)
 	}
 	run("ffmpeg", "-v", "error", "-i", exportPath, "-f", "null", "-")
+
+	// An archive split into parts: one part per run here, each playable on its own.
+	partsDir := filepath.Join(tmpDir, "parts")
+	if err := os.MkdirAll(partsDir, 0o755); err != nil {
+		t.Fatalf("create parts dir: %v", err)
+	}
+	packedPath := filepath.Join(partsDir, id+"-video.m3u8")
+	if err := hls.PackMediaPlaylist(ctx, playlistPath, partsDir, filepath.Base(packedPath), time.Hour); err != nil {
+		t.Fatalf("pack stitched capture: %v", err)
+	}
+	// A part keeps the video's timeline: the second one starts where the first run ended.
+	for i, part := range []string{"-video-part001.mp4", "-video-part002.mp4"} {
+		out, err := osExec.CommandContext(ctx, "ffprobe", "-v", "error", "-show_entries", "format=start_time,duration",
+			"-of", "default=noprint_wrappers=1:nokey=1", filepath.Join(partsDir, id+part)).Output()
+		if err != nil {
+			t.Fatalf("probe part %s: %v", part, err)
+		}
+		var start, end float64
+		if _, err := fmt.Sscan(string(out), &start, &end); err != nil {
+			t.Fatalf("parse probe of part %s %q: %v", part, out, err)
+		}
+		if wantStart := float64(i) * 8.5; start < wantStart-0.2 || start > wantStart+0.2 || end-start < 7.5 || end-start > 8.5 {
+			t.Fatalf("part %s spans %f to %f, want 8s from %fs", part, start, end, wantStart)
+		}
+		run("ffmpeg", "-v", "error", "-i", filepath.Join(partsDir, id+part), "-f", "null", "-")
+	}
+	if err := hls.ValidateMediaPlaylistFiles(packedPath); err != nil {
+		t.Fatalf("validate packed playlist: %v", err)
+	}
+	packedDuration, err := GetVideoDuration(ctx, packedPath)
+	if err != nil {
+		t.Fatalf("probe packed playlist: %v", err)
+	}
+	if packedDuration < 16 || packedDuration > 17 {
+		t.Fatalf("packed playlist lasts %ds, want about 16.5s", packedDuration)
+	}
+	run("ffmpeg", "-v", "error", "-i", packedPath, "-f", "null", "-")
 }

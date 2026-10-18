@@ -335,6 +335,11 @@ definitions:
               within this many minutes (0 = disabled).
             minimum: 0
             type: integer
+          split_duration_minutes:
+            description: Save live archives as HLS in MP4 parts of at most this many
+              minutes (0 = no split).
+            minimum: 0
+            type: integer
         type: object
       log_retention_days:
         description: Number of days to retain log files.

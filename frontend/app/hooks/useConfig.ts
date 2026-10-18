@@ -24,6 +24,7 @@ export interface Config {
     proxy_enabled: boolean;
     proxy_whitelist: string[];
     reconnect_grace_minutes: number;
+    split_duration_minutes: number;
   };
 }
 

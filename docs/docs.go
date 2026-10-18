@@ -5552,6 +5552,11 @@ const docTemplate = `{
                             "description": "Resume a dropped live stream into the same video if it returns within this many minutes (0 = disabled).",
                             "type": "integer",
                             "minimum": 0
+                        },
+                        "split_duration_minutes": {
+                            "description": "Save live archives as HLS in MP4 parts of at most this many minutes (0 = no split).",
+                            "type": "integer",
+                            "minimum": 0
                         }
                     }
                 },

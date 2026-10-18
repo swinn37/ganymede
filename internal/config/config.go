@@ -32,6 +32,7 @@ type Config struct {
 		ProxyParameters       string          `json:"proxy_parameters"`                         // Query parameters for proxy URL.
 		ProxyWhitelist        []string        `json:"proxy_whitelist"`                          // Channels exempt from proxy.
 		ReconnectGraceMinutes int             `json:"reconnect_grace_minutes" validate:"gte=0"` // Resume a dropped live stream into the same video if it returns within this many minutes (0 = disabled).
+		SplitDurationMinutes  int             `json:"split_duration_minutes" validate:"gte=0"`  // Save live archives as HLS in MP4 parts of at most this many minutes (0 = no split).
 	} `json:"livestream"`
 	Experimental struct {
 		BetterLiveStreamDetectionAndCleanup bool `json:"better_live_stream_detection_and_cleanup"` // [EXPERIMENTAL] Enable enhanced detection and cleanup.
@@ -221,6 +222,7 @@ func (c *Config) SetDefaults() {
 	c.Livestream.ProxyParameters = "%3Fplayer%3Dtwitchweb%26type%3Dany%26allow_source%3Dtrue%26allow_audio_only%3Dtrue%26allow_spectre%3Dfalse%26fast_bread%3Dtrue"
 	c.Livestream.ProxyWhitelist = []string{}
 	c.Livestream.ReconnectGraceMinutes = 0
+	c.Livestream.SplitDurationMinutes = 0
 
 	c.LogRetentionDays = 30
 

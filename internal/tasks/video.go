@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/riverqueue/river"
@@ -363,11 +364,20 @@ func (w MoveVideoWorker) Work(ctx context.Context, job *river.Job[MoveVideoArgs]
 	} else {
 		if utils.DirectoryExists(dbItems.Video.TmpVideoHlsPath) {
 			// Finalize the playlist before the whole directory is moved below.
-			if _, err := exec.EnsureLiveHlsPlaylist(ctx, dbItems.Video.TmpVideoHlsPath, liveCaptureID(&dbItems.Video)); err != nil {
+			playlistPath, err := exec.EnsureLiveHlsPlaylist(ctx, dbItems.Video.TmpVideoHlsPath, liveCaptureID(&dbItems.Video))
+			if err != nil {
 				return err
 			}
 
-			if err := utils.MoveDirectory(ctx, dbItems.Video.TmpVideoHlsPath, dbItems.Video.VideoHlsPath); err != nil {
+			if partLength := time.Duration(config.Get().Livestream.SplitDurationMinutes) * time.Minute; dbItems.Queue.LiveArchive && partLength > 0 {
+				// Live archive split into parts: pack the segments instead of moving them
+				if err := utils.CreateDirectory(dbItems.Video.VideoHlsPath); err != nil {
+					return err
+				}
+				if err := hls.PackMediaPlaylist(ctx, playlistPath, dbItems.Video.VideoHlsPath, filepath.Base(dbItems.Video.VideoPath), partLength); err != nil {
+					return err
+				}
+			} else if err := utils.MoveDirectory(ctx, dbItems.Video.TmpVideoHlsPath, dbItems.Video.VideoHlsPath); err != nil {
 				return err
 			}
 			if err := utils.DeleteDirectory(dbItems.Video.TmpVideoHlsPath); err != nil {
