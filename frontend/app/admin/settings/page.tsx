@@ -2,12 +2,13 @@
 import GanymedeLoadingText from "@/app/components/utils/GanymedeLoadingText"
 import { useAxiosPrivate } from "@/app/hooks/useAxios"
 import { Config, ProxyListItem, ProxyType, useEditConfig, useGetConfig } from "@/app/hooks/useConfig"
-import { ActionIcon, Button, Card, Checkbox, Code, Collapse, Container, MultiSelect, NumberInput, Select, Text, Textarea, TextInput, Title } from "@mantine/core"
+import { ActionIcon, Button, Card, Checkbox, Code, Collapse, Container, Group, Modal, MultiSelect, NumberInput, Select, Text, Textarea, TextInput, Title } from "@mantine/core"
 import { useForm } from "@mantine/form"
 import { useDisclosure } from "@mantine/hooks"
 import { useEffect, useState } from "react"
 import classes from "./AdminSettingsPage.module.css"
-import { IconPlus, IconTrash } from "@tabler/icons-react"
+import { IconBrandTwitch, IconPlus, IconTrash } from "@tabler/icons-react"
+import TwitchLoginModalContent from "@/app/components/admin/settings/TwitchLoginModalContent"
 import { Channel, useFetchChannels } from "@/app/hooks/useChannels"
 import { showNotification } from "@mantine/notifications"
 import { useTranslations } from "next-intl"
@@ -22,6 +23,7 @@ const AdminSettingsPage = () => {
   const t = useTranslations('AdminSettingsPage');
   usePageTitle(t('title'))
   const [storageTemplateOpened, { toggle: toggleStorageTemplate }] = useDisclosure(false);
+  const [twitchLoginOpened, { open: openTwitchLogin, close: closeTwitchLogin }] = useDisclosure(false);
   const [channelSelect, setChannelSelect] = useState<SelectOption[]>([]);
   const axiosPrivate = useAxiosPrivate()
 
@@ -298,12 +300,24 @@ const AdminSettingsPage = () => {
 
             <Title mt={10} order={3}>{t('videoSettings.header')}</Title>
 
-            <TextInput
-              label={t('videoSettings.twitchTokenLabel')}
-              description={t('videoSettings.twitchTokenDescription')}
-              key={form.key('parameters.twitch_token')}
-              {...form.getInputProps('parameters.twitch_token')}
-            />
+            <Group align="flex-end">
+              <TextInput
+                flex={1}
+                miw={250}
+                label={t('videoSettings.twitchTokenLabel')}
+                description={t('videoSettings.twitchTokenDescription')}
+                key={form.key('parameters.twitch_token')}
+                {...form.getInputProps('parameters.twitch_token')}
+              />
+              <Button
+                variant="light"
+                color="violet"
+                leftSection={<IconBrandTwitch size={18} />}
+                onClick={openTwitchLogin}
+              >
+                {t('videoSettings.twitchLogin.button')}
+              </Button>
+            </Group>
 
             <TextInput
               label={t('videoSettings.convertFFmpegArgsLabel')}
@@ -411,6 +425,13 @@ const AdminSettingsPage = () => {
         </Card>
 
       </Container>
+
+      <Modal opened={twitchLoginOpened} onClose={closeTwitchLogin} title={t('videoSettings.twitchLogin.title')} centered>
+        <TwitchLoginModalContent
+          onAuthorized={(token) => form.setFieldValue('parameters.twitch_token', token)}
+          onClose={closeTwitchLogin}
+        />
+      </Modal>
     </div>
   );
 }

@@ -340,6 +340,8 @@ func groupV1Routes(e *echo.Group, h *Handler) {
 	configGroup := e.Group("/config")
 	configGroup.GET("", h.GetConfig, AuthAPIKeyOrSessionMiddleware, AuthGetUserMiddleware, RequireRoleOrScope(utils.AdminRole, utils.ApiKeyScopeConfigRead))
 	configGroup.PUT("", h.UpdateConfig, AuthAPIKeyOrSessionMiddleware, AuthGetUserMiddleware, RequireRoleOrScope(utils.AdminRole, utils.ApiKeyScopeConfigWrite))
+	configGroup.POST("/twitch-login", h.StartTwitchLogin, AuthAPIKeyOrSessionMiddleware, AuthGetUserMiddleware, RequireRoleOrScope(utils.AdminRole, utils.ApiKeyScopeConfigWrite))
+	configGroup.POST("/twitch-login/poll", h.PollTwitchLogin, AuthAPIKeyOrSessionMiddleware, AuthGetUserMiddleware, RequireRoleOrScope(utils.AdminRole, utils.ApiKeyScopeConfigWrite))
 
 	// Live
 	//
