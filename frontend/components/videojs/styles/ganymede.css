@@ -1,0 +1,25 @@
+/* Ganymede additions to the default skin, kept apart from the registry styles (see AGENTS.md). */
+@layer components {
+  @scope (.media-skin[data-theme="default"]) {
+    /* Speed button: shows the rate as text instead of an icon. */
+    .media-playback-rate-menu-trigger {
+      width: auto;
+      min-width: var(--media-control-size);
+      padding-inline: calc(var(--media-spacing) * 2);
+      font-size: calc(var(--media-spacing) * 3.5);
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    .media-volume-percent {
+      display: block;
+      margin-bottom: calc(var(--media-spacing) * 2);
+      font-size: calc(var(--media-spacing) * 3);
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
+      text-align: center;
+    }
+  }
+}

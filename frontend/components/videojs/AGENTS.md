@@ -45,6 +45,19 @@ An upstream refresh must retain or deliberately reimplement all of these:
    - `PlayerTheaterModeIcon.tsx`, `PlayerAbsoluteTimeIcon.tsx`, and
      `PlayerHideChatIcon.tsx` use the local `Button` and `ButtonTooltip`
      primitives. Keep their accessible labels and `aria-pressed` state.
+4. Fork player additions:
+   - `ui/playback-rate-menu.tsx` defines `PLAYBACK_RATES` (0.25x to 2.5x;
+     Video.js's own list stops at 2x and cannot be configured), the speed
+     button that `video/layout/controls.tsx` renders before the settings menu,
+     its mouse wheel steps, and the `>` / `<` shortcuts that replace the
+     built-in `speedUp` / `speedDown` hotkeys in
+     `video/behaviors/playback-hotkeys.tsx`.
+   - `ui/playback-rate-submenu.tsx` lists `PLAYBACK_RATES` inside
+     `PlaybackRateRadioGroup.Root`, which keeps the settings menu available.
+   - `ui/volume-popover.tsx` shows the volume percentage above the slider and
+     moves the volume in 5% mouse wheel steps over the mute button and the
+     popup, with `frontend/app/components/videos/playerWheel.ts`.
+   - `styles/ganymede.css` holds the styles of these additions.
 
 Do not restore the entire pre-update directory after refreshing it. Doing so
 would silently discard upstream fixes. Merge the small customizations above

@@ -8,6 +8,7 @@ import { CastButton } from '@/components/videojs/ui/cast-button';
 import { FullscreenButton } from '@/components/videojs/ui/fullscreen-button';
 import { PiPButton } from '@/components/videojs/ui/pip-button';
 import { PlayButton } from '@/components/videojs/ui/play-button';
+import { PlaybackRateMenu } from '@/components/videojs/ui/playback-rate-menu';
 import { TimeSlider } from '@/components/videojs/ui/time-slider';
 import { VolumePopover } from '@/components/videojs/ui/volume-popover';
 import { cn } from '@/lib/resolve-class-name';
@@ -45,6 +46,7 @@ export function DefaultVideoControls({ bookmarks = [], customControls, renderThu
             <ButtonTooltip side="top">
               <CaptionsButton className={'video-controls-captions-button'} />
             </ButtonTooltip>
+            <PlaybackRateMenu />
             <VideoSettingsMenu className={'video-controls-settings-button'} />
           </Controls.Group>
 

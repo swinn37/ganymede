@@ -95,6 +95,9 @@ const VideoPlayer = ({ video, ref }: Params) => {
     ? (video.video_start_at || video.created_at)
     : video.streamed_at;
   const autoplayVideo = useSettingsStore((state) => state.autoplayVideo);
+  const playbackRate = useSettingsStore((state) => state.playbackRate);
+  const setPlaybackRate = useSettingsStore((state) => state.setPlaybackRate);
+  const rateApplied = useRef(false);
 
   const axiosPrivate = useAxiosPrivate();
   // get playback data
@@ -210,10 +213,30 @@ const VideoPlayer = ({ video, ref }: Params) => {
     }
   }, [player]);
 
+  // The saved speed applies once per source: seeks fire canplay again.
+  useEffect(() => {
+    rateApplied.current = false;
+  }, [videoSrc]);
+
+  const applyStoredRate = useCallback(() => {
+    const el = player.current;
+    if (!el || rateApplied.current) return;
+    el.defaultPlaybackRate = playbackRate;
+    el.playbackRate = playbackRate;
+    rateApplied.current = true;
+  }, [player, playbackRate]);
+
+  const handleRateChange = useCallback(() => {
+    const el = player.current;
+    if (!el || !rateApplied.current) return;
+    setPlaybackRate(el.playbackRate);
+  }, [player, setPlaybackRate]);
+
   const handleMediaReady = useCallback(() => {
     applyStoredVolume();
+    applyStoredRate();
     applyPendingResume();
-  }, [applyStoredVolume, applyPendingResume]);
+  }, [applyStoredVolume, applyStoredRate, applyPendingResume]);
 
   // Retry resume once the element exists and the target is known.
   useEffect(() => {
@@ -312,6 +335,7 @@ const VideoPlayer = ({ video, ref }: Params) => {
     onLoadedMetadata: handleMediaReady,
     onCanPlay: handleMediaReady,
     onVolumeChange: handleVolumeChange,
+    onRateChange: handleRateChange,
   };
 
   return (
