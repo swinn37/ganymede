@@ -154,6 +154,7 @@ const VideoPage = ({ params }: { params: Promise<Params> }) => {
       {!videoTheaterMode && (
         <VideoTitleBar
           video={data}
+          playerRef={player}
           onEditNotes={!isMobile ? openNotesPanel : undefined}
         />
       )}

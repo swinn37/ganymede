@@ -968,6 +968,7 @@
     "videoTypeTooltip": "Video type",
     "videoClipsTitle": "Video Clips",
     "storageSizeTooltip": "Storage Size",
+    "remainingTimeTooltip": "Time left at {rate}x",
     "enums": {
       "VideoSortBy": {
         "date": "Date",

@@ -2,11 +2,13 @@
 import ArchiveStatusBadge from "./ArchiveStatusBadge";
 import { ArchiveStatus } from "@/app/util/archiveStatus";
 import { useGetVideoByExternalId, Video } from "@/app/hooks/useVideos";
-import { escapeURL, formatBytes } from "@/app/util/util";
+import { durationToTime, escapeURL, formatBytes } from "@/app/util/util";
 import { Avatar, Box, Divider, Tooltip, Text, Group, Badge, Button, rem } from "@mantine/core";
 import { env } from "next-runtime-env";
 import classes from "./TitleBar.module.css";
-import { IconCalendarEvent, IconDatabase, IconLock, IconNotes, IconUser, IconUsers } from "@tabler/icons-react";
+import { IconCalendarEvent, IconDatabase, IconHourglass, IconLock, IconNotes, IconUser, IconUsers } from "@tabler/icons-react";
+import { useEffect, useState } from "react";
+import type { GanymedePlayerRef } from "./ganymedePlayerRef";
 import dayjs from "dayjs";
 import VideoMenu from "./Menu";
 import useAuthStore from "@/app/store/useAuthStore";
@@ -16,10 +18,45 @@ import { useTranslations } from "next-intl";
 
 interface Params {
   video: Video;
+  playerRef?: GanymedePlayerRef;
   onEditNotes?: () => void;
 }
 
-const VideoTitleBar = ({ video, onEditNotes }: Params) => {
+// Time left to watch at the current playback speed.
+const VideoRemainingTime = ({ playerRef }: { playerRef: GanymedePlayerRef }) => {
+  const t = useTranslations("VideoComponents");
+  const [remaining, setRemaining] = useState<{ seconds: number; rate: number }>();
+
+  useEffect(() => {
+    // Read the ref on every tick: the <video> element is replaced when a recording completes
+    const interval = setInterval(() => {
+      const el = playerRef.current;
+      if (!el) return;
+      const end = Number.isFinite(el.duration) ? el.duration : el.seekable.length ? el.seekable.end(el.seekable.length - 1) : 0;
+      if (!end) return;
+      const rate = el.playbackRate || 1;
+      const seconds = Math.ceil(Math.max(0, end - el.currentTime) / rate);
+      // Re-render only when the shown second or the speed changes
+      setRemaining((prev) => (prev?.seconds === seconds && prev.rate === rate ? prev : { seconds, rate }));
+    }, 250);
+    return () => clearInterval(interval);
+  }, [playerRef]);
+
+  if (!remaining) return null;
+
+  return (
+    <Group mr={15}>
+      <Tooltip label={t('remainingTimeTooltip', { rate: remaining.rate })} openDelay={250}>
+        <div className={classes.titleBarBadge}>
+          <Text mr={3}>{durationToTime(remaining.seconds)}</Text>
+          <IconHourglass size={20} />
+        </div>
+      </Tooltip>
+    </Group>
+  );
+};
+
+const VideoTitleBar = ({ video, playerRef, onEditNotes }: Params) => {
   const t = useTranslations("VideoComponents");
   const hasPermission = useAuthStore(state => state.hasPermission);
 
@@ -29,6 +66,8 @@ const VideoTitleBar = ({ video, onEditNotes }: Params) => {
     <div className={classes.titleBarContainer}>
       <div className={classes.titleBar}>
         <Avatar
+          component={Link}
+          href={`/channels/${video.edges.channel.name}`}
           src={`${(env('NEXT_PUBLIC_CDN_URL') ?? '')}${escapeURL(video.edges.channel.image_path)}`}
           radius="xl"
           alt={video.edges.channel.display_name}
@@ -54,6 +93,8 @@ const VideoTitleBar = ({ video, onEditNotes }: Params) => {
                 <Button variant="default" size="xs" component={Link} href={`/videos/${clipFullVideo.id}?t=${video.clip_vod_offset}`}>Go To Full Video</Button>
               </Group>
             )}
+
+            {playerRef && <VideoRemainingTime playerRef={playerRef} />}
 
             {video.views && (
               <Group mr={15}>
