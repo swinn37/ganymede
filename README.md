@@ -48,6 +48,7 @@ Limitations: without parts or *Save as HLS*, the runs are exported into a single
 - The chosen speed is remembered in the browser and applied to the next videos. The LIVE button's switch to 1x does not change it.
 - The volume popup shows the volume as a percentage. The mouse wheel changes the volume in 5% steps over the volume button, and the speed in 0.1x steps over the speed button, without scrolling the page.
 - The controls hide 1.2 s after the mouse stops moving (Video.js waits 2 s), and stay visible while the mouse rests on them.
+- Showing the controls no longer darkens the whole picture: only a light fade at the top keeps the title readable.
 - The bar under the player shows the time left to watch at the current speed, and the channel avatar opens the channel page.
 
 ### Watching while archiving

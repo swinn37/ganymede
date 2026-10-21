@@ -60,7 +60,10 @@ An upstream refresh must retain or deliberately reimplement all of these:
    - `video/skin.tsx` and `video/layout/controls.tsx` pass and render the
      `afterTimeSlider` node between the time slider and the remaining time;
      `Player.tsx` puts the live indicator of a recording in progress there.
-   - `styles/ganymede.css` holds the styles of these additions.
+   - `styles/ganymede.css` holds the styles of these additions. It also hides
+     the controls backdrop (`.video-controls-backdrop`), which darkens the
+     whole picture while the controls show, and draws a light fade behind the
+     title instead (`.media-title::before`).
    - `PlayerControlsTiming.tsx`, rendered as a skin child by `Player.tsx`,
      hides the controls sooner and keeps them while the pointer rests on them.
    - `Player.tsx` plays recordings in progress with the VOD skin, so

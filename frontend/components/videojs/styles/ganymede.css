@@ -12,6 +12,21 @@
       white-space: nowrap;
     }
 
+    /* No scrim over the whole picture while the controls show, which have their own surfaces: only a light
+       fade behind the title, as tall as the title. */
+    :scope .video-controls-backdrop {
+      display: none;
+    }
+
+    .media-title::before {
+      content: "";
+      position: absolute;
+      inset: 0 0 auto;
+      z-index: -1;
+      height: calc(100% + var(--media-spacing) * 8);
+      background-image: linear-gradient(to bottom, color-mix(in oklab, var(--media-backdrop) 40%, transparent), transparent);
+    }
+
     .media-volume-percent {
       display: block;
       margin-bottom: calc(var(--media-spacing) * 2);
