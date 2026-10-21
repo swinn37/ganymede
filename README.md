@@ -49,7 +49,7 @@ Limitations: without parts or *Save as HLS*, the runs are exported into a single
 - The volume popup shows the volume as a percentage. The mouse wheel changes the volume in 5% steps over the volume button, and the speed in 0.1x steps over the speed button, without scrolling the page.
 - The controls hide 1.2 s after the mouse stops moving (Video.js waits 2 s), and stay visible while the mouse rests on them.
 - Showing the controls no longer darkens the whole picture: only a light fade at the top keeps the title readable.
-- The bar under the player shows the time left to watch at the current speed, and the channel avatar opens the channel page.
+- The bar under the player shows the time left to watch at the current speed, and the channel avatar opens the channel page. It stays on one line: a long title is cut short instead of the details wrapping onto several lines.
 
 ### Watching while archiving
 
@@ -73,7 +73,7 @@ Limitations: without parts or *Save as HLS*, the runs are exported into a single
 - Runs on Debian 13 (trixie) instead of Debian 12, with the security updates published since the base image applied at build time.
 - `gosu`, an outdated Go build flagged by scanners, is replaced by `setpriv` from util-linux. The frontend ships only the `node` binary, without npm and its dependencies, and the unused `python3-pip` is gone.
 - yt-dlp 2026.08.19, and golang.org/x/net 0.60.0 in the API and worker.
-- Trivy 0.74.0 finds 359 vulnerabilities in this image, none critical and none with an available fix, against 593 in the upstream 5.0.0 image (6 critical, 103 with a fix).
+- In a Trivy 0.74.0 scan on 2026-10-18, this image had 359 vulnerabilities, none critical and none with an available fix, against 593 in the upstream 5.0.0 image (6 critical, 103 with a fix).
 
 ---
 
