@@ -20,7 +20,8 @@
   min-width: min(250px, 40%);
 }
 .titleBarRight {
-  margin-left: auto;
+  /* The title takes all the free space: keep a gap after its ellipsis */
+  margin-left: 16px;
   float: right;
   display: flex;
   flex-shrink: 0;
