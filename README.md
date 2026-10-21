@@ -73,7 +73,7 @@ Limitations: without parts or *Save as HLS*, the runs are exported into a single
 - Runs on Debian 13 (trixie) instead of Debian 12, with the security updates published since the base image applied at build time.
 - `gosu`, an outdated Go build flagged by scanners, is replaced by `setpriv` from util-linux. The frontend ships only the `node` binary, without npm and its dependencies, and the unused `python3-pip` is gone.
 - yt-dlp 2026.08.19, and golang.org/x/net 0.60.0 in the API and worker.
-- In a Trivy 0.74.0 scan on 2026-10-18, this image had 359 vulnerabilities, none critical and none with an available fix, against 593 in the upstream 5.0.0 image (6 critical, 103 with a fix).
+- In a Trivy 0.74.0 scan on 2026-10-21, this image had 359 vulnerabilities, none critical and none with an available fix, against 597 in the upstream 5.0.0 image (6 critical, 107 with a fix).
 
 ---
 
