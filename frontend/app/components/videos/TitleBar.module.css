@@ -14,10 +14,17 @@
   padding-left: 10px;
   padding-right: 10px;
 }
+/* Takes the space the badges leave and truncates, so they never wrap; past its minimum the bar scrolls. */
+.titleBarTitle {
+  flex: 1;
+  min-width: min(250px, 40%);
+}
 .titleBarRight {
   margin-left: auto;
   float: right;
   display: flex;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 .titleBarBadge {
   display: flex;

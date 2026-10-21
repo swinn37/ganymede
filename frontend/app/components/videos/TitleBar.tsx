@@ -48,7 +48,8 @@ const VideoRemainingTime = ({ playerRef }: { playerRef: GanymedePlayerRef }) => 
     <Group mr={15}>
       <Tooltip label={t('remainingTimeTooltip', { rate: remaining.rate })} openDelay={250}>
         <div className={classes.titleBarBadge}>
-          <Text mr={3}>{durationToTime(remaining.seconds)}</Text>
+          {/* Fixed-width digits: the counter changes every second */}
+          <Text mr={3} style={{ fontVariantNumeric: 'tabular-nums' }}>{durationToTime(remaining.seconds)}</Text>
           <IconHourglass size={20} />
         </div>
       </Tooltip>
@@ -76,7 +77,7 @@ const VideoTitleBar = ({ video, playerRef, onEditNotes }: Params) => {
 
         <Divider size="sm" orientation="vertical" mr={10} />
 
-        <div style={{ width: "60%" }}>
+        <div className={classes.titleBarTitle}>
           <Tooltip label={video.title} openDelay={250}>
             <Text size="xl" lineClamp={1} pt={3}>
               {video.title}
