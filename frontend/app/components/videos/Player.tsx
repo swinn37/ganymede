@@ -387,7 +387,7 @@ const VideoPlayer = ({ video, ref }: Params) => {
             style={skinStyle}
             bookmarks={noteBookmarks}
             customControls={<PlayerCustomControls />}
-            timelineOverlay={isRecording ? <VideoPlayerLiveIndicator onResetRate={() => { keepSavedRate.current = true }} /> : undefined}
+            afterTimeSlider={isRecording ? <VideoPlayerLiveIndicator onResetRate={() => { keepSavedRate.current = true }} /> : undefined}
           >
             {isRecording ? (
               <HlsJsVideo {...mediaProps} source={recordingSource} streamType="on-demand" />

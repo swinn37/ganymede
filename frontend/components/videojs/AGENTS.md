@@ -58,8 +58,8 @@ An upstream refresh must retain or deliberately reimplement all of these:
      moves the volume in 5% mouse wheel steps over the mute button and the
      popup, with `frontend/app/components/videos/playerWheel.ts`.
    - `video/skin.tsx` and `video/layout/controls.tsx` pass and render the
-     `timelineOverlay` node over the time slider; `Player.tsx` puts the live
-     indicator of a recording in progress there.
+     `afterTimeSlider` node between the time slider and the remaining time;
+     `Player.tsx` puts the live indicator of a recording in progress there.
    - `styles/ganymede.css` holds the styles of these additions.
    - `PlayerControlsTiming.tsx`, rendered as a skin child by `Player.tsx`,
      hides the controls sooner and keeps them while the pointer rests on them.

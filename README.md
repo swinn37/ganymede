@@ -52,7 +52,7 @@ Limitations: without parts or *Save as HLS*, the runs are exported into a single
 
 ### Watching while archiving
 
-- A recording in progress plays like a regular video: from the start, with a timeline that grows as the recording continues, speed control and shortcuts. As on Twitch, a red **LIVE** badge above the end of the timeline shows you are watching the latest part. When you are behind, it becomes a **LIVE ▶|** button that jumps back to it at 1x speed.
+- A recording in progress plays like a regular video: from the start, with a timeline that grows as the recording continues, speed control and shortcuts. As on Twitch, a red **LIVE** badge at the end of the timeline, before the time left, shows you are watching the latest part. When you are behind, it becomes a **LIVE ▶|** button that jumps back to it at 1x speed.
 - Once its video is in place, an archive plays while its chat is still processed, instead of showing that no preview is available.
 
 ### Home page
