@@ -274,6 +274,15 @@ func (w PostProcessVideoWorker) Work(ctx context.Context, job *river.Job[PostPro
 	return nil
 }
 
+// Viewers of a live archive's preview switch to its archived video once it is in place, on the
+// page's next refresh (every few seconds); the temporary HLS they play stays until then.
+const livePreviewSwitchDelay = 20 * time.Second
+
+func waitForLivePreviewViewers(ctx context.Context) {
+	// A cancelled job only removes the temporary HLS sooner
+	_ = sleepContext(ctx, livePreviewSwitchDelay)
+}
+
 // /////////////
 // Move Video //
 // /////////////
@@ -355,6 +364,9 @@ func (w MoveVideoWorker) Work(ctx context.Context, job *river.Job[MoveVideoArgs]
 
 		// delete temp hls directory if exists for watching while live
 		if utils.DirectoryExists(dbItems.Video.TmpVideoHlsPath) {
+			if dbItems.Queue.LiveArchive {
+				waitForLivePreviewViewers(ctx)
+			}
 			err = utils.DeleteDirectory(dbItems.Video.TmpVideoHlsPath)
 			if err != nil {
 				return err
@@ -377,6 +389,7 @@ func (w MoveVideoWorker) Work(ctx context.Context, job *river.Job[MoveVideoArgs]
 				if err := hls.PackMediaPlaylist(ctx, playlistPath, dbItems.Video.VideoHlsPath, filepath.Base(dbItems.Video.VideoPath), partLength); err != nil {
 					return err
 				}
+				waitForLivePreviewViewers(ctx)
 			} else if err := utils.MoveDirectory(ctx, dbItems.Video.TmpVideoHlsPath, dbItems.Video.VideoHlsPath); err != nil {
 				return err
 			}

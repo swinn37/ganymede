@@ -1,12 +1,14 @@
 import { ArchiveStatus, isArchiveActive } from "@/app/util/archiveStatus";
 import { Video, VideoPlayer as VideoJsPlayer, usePlayer as useVodPlayer } from '@videojs/react/video';
+import { selectError } from '@videojs/react';
 import { HlsJsVideo } from '@videojs/react/media/hlsjs-video';
 import { I18nProvider } from '@videojs/react/i18n';
 import { VideoSkin } from '@/components/videojs/video/skin';
 import { VideoDetails, VideoType as GanymedeVideoType } from '@/app/hooks/useVideos';
 import classes from "./Player.module.css"
 import type { CSSProperties } from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { env } from 'next-runtime-env';
 import dayjs from 'dayjs';
 import { useLocale } from 'next-intl';
@@ -52,6 +54,16 @@ const AbsoluteTimeDisplay = ({ startedAt }: { startedAt: string | Date }) => {
   return <AbsoluteTimeOverlay startedAt={startedAt} currentTime={safeCurrentTime} />;
 };
 
+// A recording that fails to load may have just been archived: check now rather than at the page's next refresh
+const RecordingErrorRefresh = ({ videoId }: { videoId: string }) => {
+  const error = useVodPlayer((s) => selectError(s as object)?.error);
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    if (error) queryClient.invalidateQueries({ queryKey: ["video", videoId] });
+  }, [error, queryClient, videoId]);
+  return null;
+};
+
 const PlayerCustomControls = () => {
   return (
     <>
@@ -72,6 +84,9 @@ const VideoPlayer = ({ video, ref }: Params) => {
   const hasStartedPlayback = useRef(false);
   const hasInitializedPlaybackTime = useRef(false);
   const pendingResumeTime = useRef<number | null>(null);
+  // Last position and play state seen by the tick, carried over when the recording gives way to the archived video
+  const lastPlayback = useRef<{ time: number; playing: boolean } | null>(null);
+  const switchResume = useRef<{ time: number; playing: boolean } | null>(null);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -118,6 +133,13 @@ const VideoPlayer = ({ video, ref }: Params) => {
   // Once the archive's video is in place, it plays while the chat is still processed
   const isRecording = isArchiveActive(video.status) && !video.video_available;
   const isHls = isRecording || video.video_path.endsWith("m3u8");
+
+  // Captured during the commit, before the tick reads the new element
+  const wasRecording = useRef(isRecording);
+  useLayoutEffect(() => {
+    if (wasRecording.current && !isRecording) switchResume.current = lastPlayback.current;
+    wasRecording.current = isRecording;
+  }, [isRecording]);
 
   const videoSrc = useMemo(() => {
     // Allow for processing videos to be played via HLS from the temp directory if enabled
@@ -241,11 +263,23 @@ const VideoPlayer = ({ video, ref }: Params) => {
     setPlaybackRate(el.playbackRate);
   }, [player, setPlaybackRate]);
 
+  // The archived video goes on where the recording was, playing or paused (pause also cancels autoplay)
+  const applySwitchResume = useCallback(() => {
+    const el = player.current;
+    const resume = switchResume.current;
+    if (!el || !resume) return;
+    switchResume.current = null;
+    el.currentTime = resume.time;
+    if (resume.playing) el.play().catch(() => undefined);
+    else el.pause();
+  }, [player]);
+
   const handleMediaReady = useCallback(() => {
     applyStoredVolume();
     applyStoredRate();
     applyPendingResume();
-  }, [applyStoredVolume, applyStoredRate, applyPendingResume]);
+    applySwitchResume();
+  }, [applyStoredVolume, applyStoredRate, applyPendingResume, applySwitchResume]);
 
   // On the first play, the HLS adapter jumps to the live edge of a recording in progress. Put the playhead back
   // where it was: the start or the resume position. A later seek, or one that already was near the end, stays.
@@ -323,6 +357,7 @@ const VideoPlayer = ({ video, ref }: Params) => {
   useEffect(() => {
     const ticketInterval = setInterval(() => {
       if (player.current == null) return;
+      lastPlayback.current = { time: player.current.currentTime, playing: !player.current.paused };
 
       let time = player.current.currentTime
       // Clip chats are offset with the position of the clip in the VOD
@@ -390,7 +425,8 @@ const VideoPlayer = ({ video, ref }: Params) => {
             afterTimeSlider={isRecording ? <VideoPlayerLiveIndicator onResetRate={() => { keepSavedRate.current = true }} /> : undefined}
           >
             {isRecording ? (
-              <HlsJsVideo {...mediaProps} source={recordingSource} streamType="on-demand" />
+              // Keyed so the archived video gets a fresh element: the recording's events stay with the old one
+              <HlsJsVideo key="recording" {...mediaProps} source={recordingSource} streamType="on-demand" />
             ) : isHls ? (
               <HlsJsVideo {...mediaProps} src={videoSrc}>
                 {chapterSrc && (
@@ -411,6 +447,7 @@ const VideoPlayer = ({ video, ref }: Params) => {
               </Video>
             )}
             {showAbsoluteTime && <AbsoluteTimeDisplay startedAt={startedAt} />}
+            {isRecording && <RecordingErrorRefresh videoId={video.id} />}
             <VideoPlayerControlsTiming />
           </VideoSkin>
         </I18nProvider>
