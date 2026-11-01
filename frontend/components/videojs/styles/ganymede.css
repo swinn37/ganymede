@@ -12,13 +12,18 @@
       white-space: nowrap;
     }
 
-    /* No scrim over the whole picture while the controls show, which have their own surfaces: only a light
-       fade behind the title, as tall as the title. */
+    /* No scrims over the picture while the controls show, which have their own surfaces: only a light fade
+       behind the title, as tall as the title. */
     :scope .video-controls-backdrop {
       display: none;
     }
 
-    .media-title::before {
+    /* The skin spans the title box over the whole player for its top scrim */
+    :scope .media-title {
+      inset: 0 0 auto;
+    }
+
+    :scope .media-title::before {
       content: "";
       position: absolute;
       inset: 0 0 auto;

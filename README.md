@@ -15,7 +15,7 @@
 
 ## Fork changes
 
-This is a fork of [Zibbp/ganymede](https://github.com/Zibbp/ganymede), based on v5.0.0. It adds the changes below; everything else follows upstream. The image is published as `ghcr.io/swinn37/ganymede:fork-v5`.
+This is a fork of [Zibbp/ganymede](https://github.com/Zibbp/ganymede), based on its main branch (v5.0.1 and later). It adds the changes below; everything else follows upstream. The image is published as `ghcr.io/swinn37/ganymede:fork-v5`.
 
 ### Live archives resumed after a stream drop, in parts
 
@@ -72,7 +72,7 @@ Limitations: without parts or *Save as HLS*, the runs are exported into a single
 
 - Runs on Debian 13 (trixie) instead of Debian 12, with the security updates published since the base image applied at build time.
 - `gosu`, an outdated Go build flagged by scanners, is replaced by `setpriv` from util-linux. The frontend ships only the `node` binary, without npm and its dependencies, and the unused `python3-pip` is gone.
-- yt-dlp 2026.08.19, and golang.org/x/net 0.60.0 in the API and worker.
+- yt-dlp 2026.08.19.
 - In a Trivy 0.74.0 scan on 2026-10-21, this image had 359 vulnerabilities, none critical and none with an available fix, against 597 in the upstream 5.0.0 image (6 critical, 107 with a fix).
 
 ---
@@ -141,6 +141,12 @@ Feel free to use an existing Postgres database container if you don't want to sp
 4. Visit the address and port you specified for the frontend and login with username: `admin` password: `ganymede`.
 5. Change the admin password _or_ create a new user, grant admin permissions on that user, and delete the admin user.
 
+#### Stop grace period
+
+A clean shutdown can take up to ~80s. The example compose file sets `stop_grace_period: 90s`; on Kubernetes set `terminationGracePeriodSeconds: 90`.
+
+A fatal process error stops the container with exit code `0`, so use the `unless-stopped`/`always` restart policy, not `on-failure`.
+
 ### Images
 
 Images are published to ghcr.io. There are four types of tags available.
@@ -170,43 +176,43 @@ The `docker-compose.yml` file has comments for each environment variable. Below 
 
 ##### Server
 
-| ENV Name                                | Description                                                                                                                     |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `DEBUG`                                 | Enable debug logging `true` or `false`.                                                                                         |
-| `VIDEOS_DIR`                            | Path inside the container to the videos directory. Default: `/data/videos`.                                                     |
-| `TEMP_DIR`                              | Path inside the container where temporary files are stored during archiving. Default: `/data/temp`.                             |
-| `LOGS_DIR`                              | Path inside the container where log files are stored. Default: `/data/logs`.                                                    |
-| `CONFIG_DIR`                            | Path inside the container where the config is stored. Default: `/data/config`.                                                  |
-| `SKIP_CHOWN`                            | _Optional_ Skip `chown` of the data directories on startup. Useful when storage does not support `chown`, e.g. NFS/SMB. Default: `false`. |
-| `PATH_MIGRATION_ENABLED`                | Enable path migration at startup. Default: `true`.                                                                              |
-| `TZ`                                    | Timezone.                                                                                                                       |
-| `DB_HOST`                               | Host of the database.                                                                                                           |
-| `DB_PORT`                               | Port of the database.                                                                                                           |
-| `DB_USER`                               | Username for the database.                                                                                                      |
-| `DB_PASS`                               | Password for the database.                                                                                                      |
-| `DB_NAME`                               | Name of the database.                                                                                                           |
-| `DB_SSL`                                | Whether to use SSL. Default: `disable`. See [DB SSL](https://github.com/Zibbp/ganymede/wiki/DB-SSL) for more information.       |
-| `DB_SSL_ROOT_CERT`                      | _Optional_ Path to DB SSL root certificate. See [DB SSL](https://github.com/Zibbp/ganymede/wiki/DB-SSL) for more information.   |
-| `TWITCH_CLIENT_ID`                      | Twitch application client ID.                                                                                                   |
-| `TWITCH_CLIENT_SECRET`                  | Twitch application client secret.                                                                                               |
-| `OAUTH_ENABLED`                         | _Optional_ Wether OAuth is enabled `true` or `false`. Must have the other OAuth variables set if this is enabled.               |
-| `OAUTH_PROVIDER_URL`                    | _Optional_ OAuth provider URL. See https://github.com/Zibbp/ganymede/wiki/SSO---OpenID-Connect                                  |
-| `OAUTH_CLIENT_ID`                       | _Optional_ OAuth client ID.                                                                                                     |
-| `OAUTH_CLIENT_SECRET`                   | _Optional_ OAuth client secret.                                                                                                 |
-| `OAUTH_REDIRECT_URL`                    | _Optional_ OAuth redirect URL, points to the API. Example: `http://localhost:4000/api/v1/auth/oauth/callback`.                  |
-| `MAX_CHAT_DOWNLOAD_EXECUTIONS`          | Maximum number of chat downloads that can be running at once. Live streams bypass this limit.                                   |
-| `MAX_CHAT_RENDER_EXECUTIONS`            | Maximum number of chat renders that can be running at once.                                                                     |
-| `MAX_VIDEO_DOWNLOAD_EXECUTIONS`         | Maximum number of video downloads that can be running at once. Live streams bypass this limit.                                  |
-| `MAX_VIDEO_CONVERT_EXECUTIONS`          | Maximum number of video conversions that can be running at once.                                                                |
-| `MAX_VIDEO_SPRITE_THUMBNAIL_EXECUTIONS` | Maximum number of video sprite thumbnail generation jobs that can be running at once. This is not very CPU intensive.           |
-| `DISABLE_LIVE_ARCHIVE_STALL_CHECK`       | Disable FFmpeg progress based stall detection for live archives. Default: `false`.                                              |
-| `LIVE_ARCHIVE_STALL_TIMEOUT_SECONDS`    | Seconds without FFmpeg media progress before a live capture is stopped. Default: `180`; values below `30` use the default.     |
-| `SHOW_SSO_LOGIN_BUTTON`                 | Frontend: `true/false` Show a "login via sso" button on the login page (defaults to false).                                     |
-| `FORCE_SSO_AUTH`                        | Frontend: `true/false` Force users to login via SSO by bypassing the login page (defaults to false).                            |
-| `REQUIRE_LOGIN`                         | Frontend: `true/false` Require users to be logged in to view videos (defaults to false).                                        |
-| `SHOW_LOCALE_BUTTON`                    | Frontend: `true/false` Show the locale/language button on the navbar (defaults to true).                                        |
-| `DEFAULT_LOCALE`                        | Frontend: Sets the default locale/language. Must be the short code of the language. Example: `en` for English, `de` for German. |
-| `FORCE_LOGIN`                           | Frontend: `true/false` Force require users to login to view any page (defaults to false).                                       |
+| ENV Name                                | Description                                                                                                                                                                                                 |
+| --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DEBUG`                                 | Enable debug logging `true` or `false`.                                                                                                                                                                     |
+| `VIDEOS_DIR`                            | Path inside the container to the videos directory. Default: `/data/videos`.                                                                                                                                 |
+| `TEMP_DIR`                              | Path inside the container where temporary files are stored during archiving. Default: `/data/temp`.                                                                                                         |
+| `LOGS_DIR`                              | Path inside the container where log files are stored. Default: `/data/logs`.                                                                                                                                |
+| `CONFIG_DIR`                            | Path inside the container where the config is stored. Default: `/data/config`.                                                                                                                              |
+| `SKIP_CHOWN`                            | _Optional_ Skip `chown` of the data directories on startup. Useful when storage does not support `chown`, e.g. NFS/SMB. Default: `false`.                                                                   |
+| `PATH_MIGRATION_ENABLED`                | Enable path migration at startup. Default: `true`.                                                                                                                                                          |
+| `TZ`                                    | Timezone.                                                                                                                                                                                                   |
+| `DB_HOST`                               | Host of the database.                                                                                                                                                                                       |
+| `DB_PORT`                               | Port of the database.                                                                                                                                                                                       |
+| `DB_USER`                               | Username for the database.                                                                                                                                                                                  |
+| `DB_PASS`                               | Password for the database.                                                                                                                                                                                  |
+| `DB_NAME`                               | Name of the database.                                                                                                                                                                                       |
+| `DB_SSL`                                | Whether to use SSL. Default: `disable`. See [DB SSL](https://github.com/Zibbp/ganymede/wiki/DB-SSL) for more information.                                                                                   |
+| `DB_SSL_ROOT_CERT`                      | _Optional_ Path to DB SSL root certificate. See [DB SSL](https://github.com/Zibbp/ganymede/wiki/DB-SSL) for more information.                                                                               |
+| `TWITCH_CLIENT_ID`                      | Twitch application client ID.                                                                                                                                                                               |
+| `TWITCH_CLIENT_SECRET`                  | Twitch application client secret.                                                                                                                                                                           |
+| `OAUTH_ENABLED`                         | _Optional_ Wether OAuth is enabled `true` or `false`. Must have the other OAuth variables set if this is enabled.                                                                                           |
+| `OAUTH_PROVIDER_URL`                    | _Optional_ OAuth provider URL. See https://github.com/Zibbp/ganymede/wiki/SSO---OpenID-Connect                                                                                                              |
+| `OAUTH_CLIENT_ID`                       | _Optional_ OAuth client ID.                                                                                                                                                                                 |
+| `OAUTH_CLIENT_SECRET`                   | _Optional_ OAuth client secret.                                                                                                                                                                             |
+| `OAUTH_REDIRECT_URL`                    | _Optional_ OAuth redirect URL, points to the API. Example: `http://localhost:4000/api/v1/auth/oauth/callback`.                                                                                              |
+| `MAX_CHAT_DOWNLOAD_EXECUTIONS`          | Maximum number of chat downloads that can be running at once. Live streams bypass this limit. This is memory-intensive, using around 1.9GB (per execution). CPU is negligible. Uses some network bandwidth. |
+| `MAX_CHAT_RENDER_EXECUTIONS`            | Maximum number of chat renders that can be running at once. This is very CPU-intensive. Memory is around 500MB (per execution).                                                                             |
+| `MAX_VIDEO_DOWNLOAD_EXECUTIONS`         | Maximum number of video downloads that can be running at once. Live streams bypass this limit. Is storage- and network-intensive.                                                                           |
+| `MAX_VIDEO_CONVERT_EXECUTIONS`          | Maximum number of video conversions that can be running at once. Can be resource-intensive depending on your FFmpeg arguments. By default, it is storage intensive and uses some memory.                    |
+| `MAX_VIDEO_SPRITE_THUMBNAIL_EXECUTIONS` | Maximum number of video sprite thumbnail generation jobs that can be running at once. CPU, memory, and storage utilization is negligible.                                                                   |
+| `DISABLE_LIVE_ARCHIVE_STALL_CHECK`      | Disable FFmpeg progress based stall detection for live archives. Default: `false`.                                                                                                                          |
+| `LIVE_ARCHIVE_STALL_TIMEOUT_SECONDS`    | Seconds without FFmpeg media progress before a live capture is stopped. Default: `180`; values below `30` use the default.                                                                                  |
+| `SHOW_SSO_LOGIN_BUTTON`                 | Frontend: `true/false` Show a "login via sso" button on the login page (defaults to false).                                                                                                                 |
+| `FORCE_SSO_AUTH`                        | Frontend: `true/false` Force users to login via SSO by bypassing the login page (defaults to false).                                                                                                        |
+| `REQUIRE_LOGIN`                         | Frontend: `true/false` Require users to be logged in to view videos (defaults to false).                                                                                                                    |
+| `SHOW_LOCALE_BUTTON`                    | Frontend: `true/false` Show the locale/language button on the navbar (defaults to true).                                                                                                                    |
+| `DEFAULT_LOCALE`                        | Frontend: Sets the default locale/language. Must be the short code of the language. Example: `en` for English, `de` for German.                                                                             |
+| `FORCE_LOGIN`                           | Frontend: `true/false` Force require users to login to view any page (defaults to false).                                                                                                                   |
 
 ##### DB
 
