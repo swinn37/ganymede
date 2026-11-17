@@ -15,7 +15,7 @@
 
 ## Fork changes
 
-This is a fork of [Zibbp/ganymede](https://github.com/Zibbp/ganymede), based on its main branch (v5.0.1 and later). It adds the changes below; everything else follows upstream. The image is published as `ghcr.io/swinn37/ganymede:fork-v5`.
+This is a fork of [Zibbp/ganymede](https://github.com/Zibbp/ganymede), based on its main branch (v5.0.3 and later). It adds the changes below; everything else follows upstream. The image is published as `ghcr.io/swinn37/ganymede:fork-v5`.
 
 ### Live archives resumed after a stream drop, in parts
 
@@ -193,6 +193,7 @@ The `docker-compose.yml` file has comments for each environment variable. Below 
 | `DB_NAME`                               | Name of the database.                                                                                                                                                                                       |
 | `DB_SSL`                                | Whether to use SSL. Default: `disable`. See [DB SSL](https://github.com/Zibbp/ganymede/wiki/DB-SSL) for more information.                                                                                   |
 | `DB_SSL_ROOT_CERT`                      | _Optional_ Path to DB SSL root certificate. See [DB SSL](https://github.com/Zibbp/ganymede/wiki/DB-SSL) for more information.                                                                               |
+| `DB_MAX_CONNS`                          | _Optional_ Caps each Postgres pool. API and worker each open 2 pools, and the worker's task queue holds 1 more connection outside its pool, so the total is at most 4 × value + 1 (`5` allows 21). Low values queue requests under load. Minimum `2`. Default: library defaults. |
 | `TWITCH_CLIENT_ID`                      | Twitch application client ID.                                                                                                                                                                               |
 | `TWITCH_CLIENT_SECRET`                  | Twitch application client secret.                                                                                                                                                                           |
 | `OAUTH_ENABLED`                         | _Optional_ Wether OAuth is enabled `true` or `false`. Must have the other OAuth variables set if this is enabled.                                                                                           |

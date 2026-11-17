@@ -82,6 +82,9 @@ exit $status
 // ErrLiveArchiveStalled indicates that a live FFmpeg capture stopped making media progress.
 var ErrLiveArchiveStalled = stdErrors.New("live archive stalled")
 
+// ErrLiveHLSRecoveryExpired indicates that the live source could not recover in time.
+var ErrLiveHLSRecoveryExpired = stdErrors.New("live HLS recovery timed out")
+
 func appendLiveArchiveProgressArgs(args []string, enabled bool) []string {
 	if !enabled {
 		return args
@@ -138,8 +141,9 @@ func buildLiveHlsCaptureFFmpegArgs(inputURI, playlistPath, segmentPattern, initF
 	ffmpegArgs = appendLiveArchiveProgressArgs(ffmpegArgs, monitorStalls)
 	ffmpegArgs = append(ffmpegArgs,
 		"-fflags", "+genpts+discardcorrupt",
-		"-rw_timeout", "30000000",
-		"-timeout", "30000000",
+		// Allow the local HLS recovery proxy to retry before FFmpeg times out.
+		"-rw_timeout", "65000000",
+		"-timeout", "65000000",
 		// Resume interrupted HTTP reads without ending the live capture.
 		"-reconnect", "1",
 		"-reconnect_streamed", "1",
@@ -444,9 +448,18 @@ func DownloadTwitchLiveVideo(ctx context.Context, video ent.Vod, channel ent.Cha
 	}
 	// Capture files use the immutable stream ID; ExtID may later become the VOD ID.
 	captureID := liveCaptureID(video)
+	recoveryProxy, err := newLiveHLSProxy(ctx, video.ID.String(), channel.Name, liveHLSRetryWindow, liveHLSRetryInterval, liveHLSRequestTimeout)
+	if err != nil {
+		return err
+	}
+	defer recoveryProxy.Close()
+	inputURI, err := recoveryProxy.playlistURL(qualitiesURI[closestQuality])
+	if err != nil {
+		return fmt.Errorf("prepare live HLS source: %w", err)
+	}
 	playlistName, initName, segmentPattern := hls.CaptureRunFiles(captureID, resume.Run)
 	ffmpegArgs := buildLiveHlsCaptureFFmpegArgs(
-		qualitiesURI[closestQuality],
+		inputURI,
 		filepath.Join(video.TmpVideoHlsPath, playlistName),
 		filepath.Join(video.TmpVideoHlsPath, segmentPattern),
 		initName,
@@ -491,7 +504,7 @@ func DownloadTwitchLiveVideo(ctx context.Context, video ent.Vod, channel ent.Cha
 	if progressReader != nil {
 		progressUpdates = ffmpegProgressUpdates(progressReader)
 	}
-	err = superviseLiveArchiveCommand(ctx, cmd, done, progressUpdates, stallTimeout)
+	err = superviseLiveArchiveCommand(ctx, cmd, done, progressUpdates, stallTimeout, recoveryProxy)
 	if stdErrors.Is(err, ErrLiveArchiveStalled) {
 		log.Warn().Str("channel", channel.Name).Str("video_id", video.ID.String()).Dur("timeout", stallTimeout).Msg("live archive capture stopped after ffmpeg made no media progress")
 	}
@@ -532,15 +545,33 @@ func ffmpegProgressUpdates(reader io.Reader) <-chan int64 {
 	return updates
 }
 
-func superviseLiveArchiveCommand(ctx context.Context, cmd *osExec.Cmd, done <-chan error, progressUpdates <-chan int64, stallTimeout time.Duration) error {
+func superviseLiveArchiveCommand(ctx context.Context, cmd *osExec.Cmd, done <-chan error, progressUpdates <-chan int64, stallTimeout time.Duration, recovery *liveHLSProxy) error {
 	var stallTimer *time.Timer
 	var stallTimerC <-chan time.Time
+	var recoveryExpired, recoveryChanged <-chan struct{}
+	if recovery != nil {
+		recoveryExpired, recoveryChanged = recovery.expired, recovery.changed
+	}
 	var lastOutTime int64
 	if stallTimeout > 0 {
 		stallTimer = time.NewTimer(stallTimeout)
 		stallTimerC = stallTimer.C
 		defer stallTimer.Stop()
 	}
+	updateStallTimer := func() {
+		if stallTimer == nil {
+			return
+		}
+		// Recovery has its own deadline. Resume the media watchdog afterwards.
+		if recovery != nil && recovery.recovering() {
+			stallTimer.Stop()
+			stallTimerC = nil
+			return
+		}
+		resetTimer(stallTimer, stallTimeout)
+		stallTimerC = stallTimer.C
+	}
+	updateStallTimer()
 
 	for {
 		select {
@@ -548,21 +579,39 @@ func superviseLiveArchiveCommand(ctx context.Context, cmd *osExec.Cmd, done <-ch
 			stopLiveArchiveCommand(cmd, done)
 			return ctx.Err()
 		case commandErr := <-done:
+			select {
+			case <-recoveryExpired:
+				return ErrLiveHLSRecoveryExpired
+			default:
+			}
 			if commandErr != nil {
 				log.Error().Err(commandErr).Msg("error running ffmpeg")
 				return fmt.Errorf("error running ffmpeg: %w", commandErr)
 			}
 			return nil
+		case <-recoveryExpired:
+			if ctx.Err() != nil {
+				stopLiveArchiveCommand(cmd, done)
+				return ctx.Err()
+			}
+			stopLiveArchiveCommand(cmd, done)
+			return ErrLiveHLSRecoveryExpired
+		case <-recoveryChanged:
+			updateStallTimer()
 		case outTime, ok := <-progressUpdates:
 			if !ok {
 				progressUpdates = nil
 				continue
 			}
 			lastOutTime = outTime
-			if stallTimer != nil {
+			if stallTimerC != nil {
 				resetTimer(stallTimer, stallTimeout)
 			}
 		case <-stallTimerC:
+			if recovery != nil && recovery.recovering() {
+				updateStallTimer()
+				continue
+			}
 			if ctx.Err() != nil {
 				stopLiveArchiveCommand(cmd, done)
 				return ctx.Err()
@@ -727,13 +776,10 @@ func ConvertVideoToHLS(ctx context.Context, video ent.Vod) error {
 	return nil
 }
 
-func buildHlsToMp4FFmpegArgs(video ent.Vod, playlistPath, exportPath, configFfmpegArgs string, normalizeTimestamps bool) []string {
-	args := []string{"-y", "-hide_banner", "-i", playlistPath, "-map", "0", "-dn", "-ignore_unknown", "-c", "copy", "-f", "mp4", "-movflags", "+faststart", "-metadata", "title=" + video.Title}
+func buildHlsToMp4FFmpegArgs(video ent.Vod, playlistPath, exportPath, configFfmpegArgs string, normalizeTimestamps bool, starts []mediaStreamStart) []string {
+	args := []string{"-y", "-hide_banner", "-i", playlistPath, "-map", "0", "-dn", "-ignore_unknown", "-c", "copy", "-f", "mp4", "-avoid_negative_ts", "make_non_negative", "-movflags", "+faststart", "-metadata", "title=" + video.Title}
 	args = append(args, strings.Fields(configFfmpegArgs)...)
-	if normalizeTimestamps {
-		// Repair start offsets without re-encoding.
-		args = append(args, "-bsf", "setts=ts=TS-STARTDTS")
-	}
+	args = appendMediaTimestampArgs(args, starts, normalizeTimestamps)
 	return append(args, exportPath)
 }
 
@@ -741,6 +787,10 @@ func buildHlsToMp4FFmpegArgs(video ent.Vod, playlistPath, exportPath, configFfmp
 func ExportHlsToMp4(ctx context.Context, video ent.Vod, exportPath string) error {
 	env := config.GetEnvConfig()
 	playlistPath := filepath.Join(video.TmpVideoHlsPath, liveCaptureID(video)+"-video.m3u8")
+	starts, err := probeMediaStreamStarts(ctx, playlistPath)
+	if err != nil {
+		return fmt.Errorf("probe HLS stream starts: %w", err)
+	}
 
 	// Append to the convert log to preserve ffmpeg output.
 	logFilePath := fmt.Sprintf("%s/%s-video-convert.log", env.LogsDir, video.ID.String())
@@ -764,7 +814,7 @@ func ExportHlsToMp4(ctx context.Context, video ent.Vod, exportPath string) error
 
 	return exportWithTimestampRepair(ctx, video.ID.String(), tmpExportPath,
 		func(normalizeTimestamps bool) error {
-			args := buildHlsToMp4FFmpegArgs(video, playlistPath, tmpExportPath, config.Get().Parameters.VideoConvert, normalizeTimestamps)
+			args := buildHlsToMp4FFmpegArgs(video, playlistPath, tmpExportPath, config.Get().Parameters.VideoConvert, normalizeTimestamps, starts)
 			return runHlsToMp4FFmpeg(ctx, video, args, tmpExportPath, file)
 		},
 		commit,
@@ -968,10 +1018,9 @@ func PostProcessVideo(ctx context.Context, video ent.Vod) error {
 	return postProcessVideo(ctx, video, configFfmpegArgs, file)
 }
 
-// exportWithTimestampRepair runs the mux, probes the result, and when the
-// container timeline is inflated re-runs the mux with per-stream timestamp
-// normalization before committing. Both mux passes write to the same atomic
-// temp target; commit publishes it.
+// exportWithTimestampRepair probes the muxed result and normalizes the shared
+// timeline when needed. Both passes write to the same atomic temp target;
+// commit publishes it.
 func exportWithTimestampRepair(
 	ctx context.Context,
 	videoID string,
@@ -996,7 +1045,10 @@ func exportWithTimestampRepair(
 		Str("video_id", videoID).
 		Float64("format_duration", duration.FormatDuration).
 		Float64("stream_duration", duration.LongestStreamDuration).
-		Msg("detected anomalous container timestamps; normalizing each stream")
+		Float64("min_stream_start_time", duration.MinStreamStartTime).
+		Float64("max_stream_start_time", duration.MaxStreamStartTime).
+		Float64("max_stream_end_time", duration.MaxStreamEndTime).
+		Msg("detected anomalous media timestamps; normalizing the shared timeline")
 
 	if err := runMux(true); err != nil {
 		return fmt.Errorf("normalize exported video timestamps: %w", err)
@@ -1008,9 +1060,11 @@ func exportWithTimestampRepair(
 	}
 	if duration.HasTimestampAnomaly() {
 		return fmt.Errorf(
-			"timestamp normalization did not repair container duration: format=%f stream=%f",
+			"timestamp normalization did not repair media timeline: format=%f stream=%f min_start=%f max_start=%f",
 			duration.FormatDuration,
 			duration.LongestStreamDuration,
+			duration.MinStreamStartTime,
+			duration.MaxStreamStartTime,
 		)
 	}
 
@@ -1018,6 +1072,10 @@ func exportWithTimestampRepair(
 }
 
 func postProcessVideo(ctx context.Context, video ent.Vod, configFfmpegArgs string, output io.Writer) error {
+	starts, err := probeMediaStreamStarts(ctx, video.TmpVideoDownloadPath)
+	if err != nil {
+		return fmt.Errorf("probe downloaded stream starts: %w", err)
+	}
 	// Write atomically via a sibling temp file for crash-safe retries.
 	tmpExportPath, commit, cleanup, err := tempExportTarget(video.TmpVideoConvertPath)
 	if err != nil {
@@ -1030,7 +1088,7 @@ func postProcessVideo(ctx context.Context, video ent.Vod, configFfmpegArgs strin
 
 	return exportWithTimestampRepair(ctx, video.ID.String(), tmpExportPath,
 		func(normalizeTimestamps bool) error {
-			args := buildPostProcessVideoFFmpegArgs(exportVideo, configFfmpegArgs, normalizeTimestamps)
+			args := buildPostProcessVideoFFmpegArgs(exportVideo, configFfmpegArgs, normalizeTimestamps, starts)
 			return runPostProcessVideoFFmpeg(ctx, exportVideo, args, output)
 		},
 		commit,
@@ -1054,30 +1112,23 @@ func runPostProcessVideoFFmpeg(ctx context.Context, video ent.Vod, ffmpegArgs []
 	return nil
 }
 
-func postProcessVideoFFmpegArgs(video ent.Vod, configFfmpegArgs string) []string {
-	return buildPostProcessVideoFFmpegArgs(video, configFfmpegArgs, false)
+func postProcessVideoFFmpegArgs(video ent.Vod, configFfmpegArgs string, starts []mediaStreamStart) []string {
+	return buildPostProcessVideoFFmpegArgs(video, configFfmpegArgs, false, starts)
 }
 
-func normalizedPostProcessVideoFFmpegArgs(video ent.Vod, configFfmpegArgs string) []string {
-	return buildPostProcessVideoFFmpegArgs(video, configFfmpegArgs, true)
+func normalizedPostProcessVideoFFmpegArgs(video ent.Vod, configFfmpegArgs string, starts []mediaStreamStart) []string {
+	return buildPostProcessVideoFFmpegArgs(video, configFfmpegArgs, true, starts)
 }
 
-func buildPostProcessVideoFFmpegArgs(video ent.Vod, configFfmpegArgs string, normalizeTimestamps bool) []string {
+func buildPostProcessVideoFFmpegArgs(video ent.Vod, configFfmpegArgs string, normalizeTimestamps bool, starts []mediaStreamStart) []string {
 	arr := strings.Fields(configFfmpegArgs)
-	ffmpegArgs := []string{"-y", "-hide_banner", "-fflags", "+genpts", "-i", video.TmpVideoDownloadPath, "-map", "0", "-dn", "-ignore_unknown", "-c", "copy", "-f", "mp4"}
-	if !normalizeTimestamps {
-		ffmpegArgs = append(ffmpegArgs, "-bsf:a", "aac_adtstoasc")
-	}
+	ffmpegArgs := []string{"-y", "-hide_banner", "-fflags", "+genpts", "-i", video.TmpVideoDownloadPath, "-map", "0", "-dn", "-ignore_unknown", "-c", "copy", "-f", "mp4", "-avoid_negative_ts", "make_non_negative"}
+	ffmpegArgs = append(ffmpegArgs, "-bsf:a", "aac_adtstoasc")
 	ffmpegArgs = append(ffmpegArgs, "-movflags", "+faststart")
 
 	ffmpegArgs = append(ffmpegArgs, "-metadata", "title="+video.Title)
 	ffmpegArgs = append(ffmpegArgs, arr...)
-	if normalizeTimestamps {
-		// Apply one bitstream-filter instance per output stream. STARTDTS is
-		// therefore local to each stream, repairing large audio/video start
-		// offsets without decoding or re-encoding the media.
-		ffmpegArgs = append(ffmpegArgs, "-bsf", "setts=ts=TS-STARTDTS")
-	}
+	ffmpegArgs = appendMediaTimestampArgs(ffmpegArgs, starts, normalizeTimestamps)
 	ffmpegArgs = append(ffmpegArgs, video.TmpVideoConvertPath)
 
 	return ffmpegArgs

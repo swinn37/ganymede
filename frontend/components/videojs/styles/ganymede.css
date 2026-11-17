@@ -18,9 +18,11 @@
       display: none;
     }
 
-    /* The skin spans the title box over the whole player for its top scrim */
+    /* The skin spans the title box over the whole player for its top scrim: keep it to the title, with room
+       below for the fade, as the box clips its content */
     :scope .media-title {
       inset: 0 0 auto;
+      padding-bottom: calc(var(--media-spacing) * 8);
     }
 
     :scope .media-title::before {
@@ -28,7 +30,7 @@
       position: absolute;
       inset: 0 0 auto;
       z-index: -1;
-      height: calc(100% + var(--media-spacing) * 8);
+      height: 100%;
       background-image: linear-gradient(to bottom, color-mix(in oklab, var(--media-backdrop) 40%, transparent), transparent);
     }
 

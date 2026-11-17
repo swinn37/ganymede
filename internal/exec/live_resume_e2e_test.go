@@ -68,8 +68,13 @@ func TestLiveFmp4ResumedCaptureE2E(t *testing.T) {
 	const id = "e2e456"
 	capture := func(source string, resume LiveCaptureResume) {
 		t.Helper()
+		// Each run reads its source through its own recovery proxy, as in production
+		input, err := testLiveHLSProxy(t).playlistURL(server.URL + "/" + source + "/src.m3u8")
+		if err != nil {
+			t.Fatal(err)
+		}
 		playlist, init, segments := hls.CaptureRunFiles(id, resume.Run)
-		run("ffmpeg", buildLiveHlsCaptureFFmpegArgs(server.URL+"/"+source+"/src.m3u8",
+		run("ffmpeg", buildLiveHlsCaptureFFmpegArgs(input,
 			filepath.Join(capDir, playlist), filepath.Join(capDir, segments), init, false, "", false, resume)...)
 	}
 	playlistPath := filepath.Join(capDir, id+"-video.m3u8")

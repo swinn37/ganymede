@@ -47,6 +47,12 @@
     "error": "Erreur lors du chargement de la file d’attente",
     "loading": "Chargement de la file d’attente",
     "cancel": "L’élément de la file a été annulé",
+    "multiCancel": "Les éléments de la file ont été annulés",
+    "multiCancelPartial": "{failed} éléments de la file sur {total} n’ont pas pu être entièrement traités. Cliquez à nouveau pour réessayer les éléments restants.",
+    "bulk": {
+      "cancelOne": "Annuler 1 élément de la file",
+      "cancelMany": "Annuler {number} éléments de la file"
+    },
     "column": {
       "id": "ID",
       "channel": "Chaîne",
@@ -70,6 +76,7 @@
       "cancel": {
         "title": "Annuler l’élément de la file",
         "text": "Voulez-vous vraiment annuler cet élément de la file ?",
+        "multiText": "Voulez-vous vraiment annuler {number} éléments de la file ?",
         "description": "Pour une archive live, le téléchargement de la vidéo et du chat s’arrête, puis le post-traitement démarre. Pour une archive de VOD, toutes les tâches s’arrêtent.",
         "delete": "Supprimer la vidéo et ses fichiers",
         "block": "Bloquer l’ID de la vidéo"
@@ -532,7 +539,11 @@
       "actions": "Actions"
     },
     "drawer": "Chaîne surveillée",
-    "deleteModal": "Supprimer la chaîne surveillée"
+    "deleteModal": "Supprimer la chaîne surveillée",
+    "selectAllButton": "Tout sélectionner",
+    "bulkEditButton": "Modifier la sélection ({count})",
+    "bulkDeleteButton": "Supprimer la sélection ({count})",
+    "clearSelectionButton": "Effacer la sélection"
   },
   "AdminBlockedVideosComponents": {
     "validation": {
@@ -737,7 +748,19 @@
     "submitButton": "Créer la chaîne surveillée",
     "editButton": "Modifier la chaîne surveillée",
     "updateMetadataLabel": "Mettre à jour les métadonnées",
-    "updateMetadataDescription": "Met à jour les métadonnées du live (miniature et titre) {minutes} minutes après le début de son archivage. 0 pour désactiver."
+    "updateMetadataDescription": "Met à jour les métadonnées du live (miniature et titre) {minutes} minutes après le début de son archivage. 0 pour désactiver.",
+    "channelsLabel": "Chaîne(s)",
+    "selectChannelsNotification": "Sélectionnez au moins une chaîne",
+    "bulkCreatePartialNotification": "{succeeded} chaîne(s) surveillée(s) créée(s), {failed} en échec",
+    "bulkEditButton": "Modifier {count} chaînes surveillées",
+    "bulkEditNotification": "{count, plural, one {Chaîne surveillée modifiée} other {# chaînes surveillées modifiées}}",
+    "bulkEditPartialNotification": "{succeeded} chaîne(s) surveillée(s) modifiée(s), {failed} en échec",
+    "bulkEditAlertTitle": "Modification de {count} chaînes surveillées",
+    "bulkEditAlertText": "Chaque réglage ci-dessous, y compris les regex de titre et les catégories, remplacera les valeurs actuelles de toutes les chaînes sélectionnées.",
+    "bulkDeleteConfirmText": "Voulez-vous vraiment supprimer ces {count} chaînes surveillées ?",
+    "bulkDeleteButton": "Supprimer {count} chaînes surveillées",
+    "bulkDeleteNotification": "{count, plural, one {Chaîne surveillée supprimée} other {# chaînes surveillées supprimées}}",
+    "bulkDeletePartialNotification": "{succeeded} chaîne(s) surveillée(s) supprimée(s), {failed} en échec"
   },
   "AuthComponents": {
     "validation": {

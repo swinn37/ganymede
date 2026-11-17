@@ -63,8 +63,9 @@ An upstream refresh must retain or deliberately reimplement all of these:
    - `styles/ganymede.css` holds the styles of these additions. It also hides
      the controls backdrop (`.video-controls-backdrop`), whose scrims darken
      the picture while the controls show, and draws a light fade behind the
-     title instead: `.media-title` keeps the title's height and its `::before`
-     replaces the skin's top scrim.
+     title instead: `.media-title` keeps the title's height, plus room for the
+     fade since it clips its content, and its `::before` replaces the skin's
+     top scrim.
    - `PlayerControlsTiming.tsx`, rendered as a skin child by `Player.tsx`,
      hides the controls sooner and keeps them while the pointer rests on them.
    - `Player.tsx` plays recordings in progress with the VOD skin, so
